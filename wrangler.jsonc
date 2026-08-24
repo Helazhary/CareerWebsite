@@ -1,0 +1,18 @@
+{
+  // Cloudflare Worker serving the static export from `out/`.
+  //
+  // There is no `main` field on purpose: this Worker runs no code. It is a
+  // pure static-asset binding, which keeps the runtime attack surface at zero
+  // (docs/DESIGN.md §7) and lets `public/_headers` apply the CSP unchanged.
+  //
+  // `name` MUST match the existing Worker in the dashboard. A mismatch creates
+  // a second Worker and leaves helazhary.com pointed at the old one.
+  "name": "careerwebsite",
+  "compatibility_date": "2026-08-24",
+  "assets": {
+    "directory": "./out",
+    // Serves out/404.html for unknown paths. Not an SPA — every route is a
+    // real prerendered file.
+    "not_found_handling": "404-page"
+  }
+}

@@ -1,78 +1,93 @@
-# Connecting the repo to Cloudflare Pages
+# Hosting on Cloudflare
 
-One-time setup. After this, pushing to `main` deploys the site.
+The site is a **Worker serving static assets** — no server code, no runtime. The
+Worker has no `main` entrypoint; it is a pure asset binding over `out/`.
 
-You need: the GitHub repo (done) and `helazhary.com` in your Cloudflare account
-(done).
+Config lives in `wrangler.jsonc` at the repo root. Build settings live in the
+Cloudflare dashboard.
+
+> Historical note: an earlier draft of this doc described Cloudflare **Pages**.
+> The project is on **Workers**. Pages is in maintenance for new features and
+> Cloudflare steers new static projects to Workers Static Assets.
 
 ---
 
-## 1. Create the Pages project
+## 1. Dashboard build settings
 
-1. Go to https://dash.cloudflare.com → **Workers & Pages** → **Create** →
-   **Pages** → **Connect to Git**.
-2. Authorise Cloudflare for GitHub if prompted. Grant it access to
-   **`Helazhary/CareerWebsite`** only — not all repositories.
-3. Select the `CareerWebsite` repo and click **Begin setup**.
-
-## 2. Build settings
+Worker → **Settings** → **Build**:
 
 | Field | Value |
 | --- | --- |
-| Project name | `careerwebsite` |
-| Production branch | `main` |
-| Framework preset | **Next.js (Static HTML Export)** — or **None** |
 | Build command | `npm run build` |
-| Build output directory | `out` |
+| Deploy command (production) | `npx wrangler deploy` |
 | Root directory | *(leave blank)* |
 
-Then expand **Environment variables (advanced)** and add:
+Node is already resolved to 22 from the `engines` field in `package.json` — the
+build environment reports `nodejs@22.23.2`. You do not need a `NODE_VERSION`
+variable unless that stops being true.
 
-| Variable | Value |
-| --- | --- |
-| `NODE_VERSION` | `22` |
+**Production must deploy with `wrangler deploy`, not `wrangler versions upload`.**
+`versions upload` stages a version without routing traffic to it, so the live
+site never changes and the build still reports success. Non-production branches
+use `versions upload` automatically — that is correct and expected for previews.
 
-That last one matters. Cloudflare defaults to an older Node and the build will
-fail without it.
+**The Worker name in `wrangler.jsonc` must match the Worker in the dashboard.**
+A mismatch does not error — it silently creates a *second* Worker and leaves the
+custom domain pointed at the old one.
 
-Click **Save and Deploy**. The first build takes a minute or two. When it
-finishes you get a URL like `careerwebsite-abc.pages.dev` — open it and confirm
-the site loads.
+## 2. Point the domain at it
 
-## 3. Point the domain at it
+1. Worker → **Domains & Routes** → **Add** → **Custom domain**.
+2. Enter `helazhary.com` → **Add domain**.
 
-1. In the Pages project, open the **Custom domains** tab.
-2. **Set up a custom domain** → enter `helazhary.com` → **Continue** → **Activate domain**.
+Because the domain is already in the Cloudflare account, DNS is created for you
+and HTTPS is issued automatically. Usually live within a few minutes.
 
-Because the domain is already in your Cloudflare account, the DNS record is
-created for you and HTTPS is issued automatically. It usually goes live within a
-few minutes.
+3. Repeat for `www.helazhary.com` if you want it to resolve too.
 
-3. Repeat for `www.helazhary.com` if you want it to work too — Cloudflare will
-   redirect it to the apex domain.
+## 3. Verify
 
-## 4. Verify
-
-- https://helazhary.com loads.
-- The padlock is present, and https works.
-- Security headers are applied — check with:
+- https://helazhary.com loads the real site (not a Hello World placeholder).
+- The padlock is present.
+- Security headers are applied:
 
 ```bash
 curl -sI https://helazhary.com | grep -i -E 'content-security|strict-transport|x-frame|x-content-type'
 ```
 
-If those headers are missing, `public/_headers` did not make it into `out/`.
-Confirm with `npm run build && cat out/_headers`.
+If those are missing, `public/_headers` did not make it into `out/`. Confirm
+locally with `npm run build && cat out/_headers`.
+
+- A deep link works: https://helazhary.com/projects/nir-spectroscopy/
+- An unknown path serves the 404 page, not a blank response.
 
 ---
 
-## Day-to-day after setup
+## Day-to-day
 
 - Push to `main` → production deploys automatically.
-- Open a pull request → Cloudflare builds a **preview URL** for that branch, so
-  you can look at a change before it is public.
-- Build logs: Pages project → **Deployments** → click a deployment.
-- Roll back: **Deployments** → find a known-good one → **Rollback to this deployment**.
+- Open a pull request → Cloudflare builds a preview version with its own URL.
+- Build logs: Worker → **Deployments** → **View build**.
+- Roll back: **Deployments** → find a known-good version → **Rollback**.
+
+## Troubleshooting
+
+**Every build fails and the live site is a Hello World.**
+The Worker was created from the Hello World template and no build has succeeded
+since, so the template is still the active version. Fix the build; the
+placeholder disappears with the first green deploy.
+
+**Build fails with a missing entrypoint or missing config.**
+`wrangler.jsonc` is absent or the deploy command runs from the wrong directory.
+A static-assets Worker needs no `main`, but it does need `assets.directory`.
+
+**Build succeeds, deploy succeeds, live site unchanged.**
+The deploy command is `wrangler versions upload`, which stages a version without
+routing traffic to it. Production needs `wrangler deploy`.
+
+**Deploy succeeds but the domain still shows the old site.**
+The `name` in `wrangler.jsonc` does not match the Worker holding the custom
+domain. Check Workers & Pages for a duplicate.
 
 ## Optional hardening, once it is live
 
