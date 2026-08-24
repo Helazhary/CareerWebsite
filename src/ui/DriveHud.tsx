@@ -20,14 +20,21 @@ export function DriveHud({
   onExit,
   onOpenMap,
   onOpenEntry,
+  onOpenAbout,
+  onOpenControls,
   panelOpen,
+  controlsHidden,
 }: {
   hud: HudState | null;
   input: React.RefObject<InputBuffer>;
   onExit: () => void;
   onOpenMap: () => void;
   onOpenEntry: (entryId: string) => void;
+  onOpenAbout: () => void;
+  onOpenControls: () => void;
   panelOpen: boolean;
+  /** The instructions card is up; the HUD gets out of its way. */
+  controlsHidden: boolean;
 }): React.JSX.Element {
   const branches = hud?.branches ?? [];
   // A choice, and close enough for it to be about the junction in front of you.
@@ -47,7 +54,22 @@ export function DriveHud({
           <p className="text-sm font-semibold text-text sm:text-base">{site.name}</p>
           <p className="text-xs text-muted sm:text-sm">{site.role}</p>
         </div>
-        <nav className="pointer-events-auto flex gap-2">
+        <nav className="pointer-events-auto flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            onClick={onOpenAbout}
+            className="rounded border border-line bg-surface/85 px-3 py-1.5 text-xs font-medium text-text backdrop-blur transition hover:border-accent hover:text-accent sm:text-sm"
+          >
+            About
+          </button>
+          <button
+            type="button"
+            onClick={onOpenControls}
+            aria-label="Show the controls again"
+            className="rounded border border-line bg-surface/85 px-2.5 py-1.5 text-xs font-medium text-muted backdrop-blur transition hover:border-accent hover:text-accent sm:text-sm"
+          >
+            ?
+          </button>
           <button
             type="button"
             onClick={onOpenMap}
@@ -79,7 +101,7 @@ export function DriveHud({
 
       {/* What you are standing at. An offer, not an interruption — the panel
           never opens itself as you drive past. */}
-      {nearby !== undefined && nearbyId !== null && !panelOpen ? (
+      {nearby !== undefined && nearbyId !== null && !panelOpen && !controlsHidden ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-40 z-10 flex justify-center px-4 sm:bottom-44">
           <button
             type="button"
@@ -95,7 +117,7 @@ export function DriveHud({
       ) : null}
 
       {/* Junction prompt: ◀ The Lab │ Highway ▶ */}
-      {atJunction ? (
+      {atJunction && !controlsHidden ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-24 z-10 flex justify-center px-4 sm:bottom-28">
           <div className="flex items-center gap-1 rounded-full border border-line bg-surface/90 px-2 py-1.5 text-xs backdrop-blur sm:text-sm">
             {branches.map((branch, index) => {
@@ -120,7 +142,11 @@ export function DriveHud({
       ) : null}
 
       {/* Touch zones. Large, thumb-reachable, hidden on pointer devices. */}
-      <div className="absolute inset-x-0 bottom-0 z-10 flex h-24 touch-none select-none gap-2 p-3 sm:hidden">
+      <div
+        className={`absolute inset-x-0 bottom-0 z-10 flex h-24 touch-none select-none gap-2 p-3 sm:hidden ${
+          controlsHidden ? 'hidden' : ''
+        }`}
+      >
         <button
           type="button"
           aria-label="Turn left at the next junction"
@@ -159,7 +185,11 @@ export function DriveHud({
       </div>
 
       {/* Keyboard hint, desktop only. No tutorial, no gate — one line. */}
-      <p className="pointer-events-none absolute inset-x-0 bottom-4 z-10 hidden text-center text-xs text-muted sm:block">
+      <p
+        className={`pointer-events-none absolute inset-x-0 bottom-4 z-10 text-center text-xs text-muted ${
+          controlsHidden ? 'hidden' : 'hidden sm:block'
+        }`}
+      >
         Hold <kbd className="rounded border border-line px-1">W</kbd> to drive ·{' '}
         <kbd className="rounded border border-line px-1">←</kbd>{' '}
         <kbd className="rounded border border-line px-1">→</kbd> at a junction ·{' '}

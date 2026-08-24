@@ -4,7 +4,9 @@ import { Canvas } from '@react-three/fiber';
 import { PCFShadowMap } from 'three';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { entries } from '@content/registry';
+import { AboutPanel } from '@/ui/AboutPanel';
 import { DriveHud } from '@/ui/DriveHud';
+import { IntroOverlay } from '@/ui/IntroOverlay';
 import { Minimap } from '@/ui/Minimap';
 import { ProjectPanel } from '@/ui/ProjectPanel';
 import { type DriveState, initialDriveState, stateAtAnchor } from './drive';
@@ -13,6 +15,16 @@ import { useDriveInput } from './useDriveInput';
 import { worldGraph } from './world';
 
 const ENTRY_BY_ID = new Map(entries.map((entry) => [entry.id, entry]));
+
+/**
+ * The opening: shutter up, car pulls out on its own, then the viewer takes the
+ * wheel. Long enough to clear the garage and see the road, short enough that
+ * nobody sits through it twice.
+ */
+const DRIVE_OUT_SECONDS = 3.4;
+
+/** 'garage' → 'leaving' → 'driving'. Deep links skip straight to driving. */
+type Phase = 'garage' | 'leaving' | 'driving';
 
 export default function WorldCanvas({
   onExit,
@@ -33,24 +45,34 @@ export default function WorldCanvas({
 
   const [hud, setHud] = useState<HudState | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [openEntryId, setOpenEntryId] = useState<string | null>(initialEntryId ?? null);
+  // Arriving by deep link means arriving at a building, not in the garage.
+  const [phase, setPhase] = useState<Phase>(initialEntryId === undefined ? 'garage' : 'driving');
+  const [showControls, setShowControls] = useState(initialEntryId === undefined);
 
   const openEntry = openEntryId === null ? undefined : ENTRY_BY_ID.get(openEntryId);
-  const paused = mapOpen || openEntry !== undefined;
+  const paused = mapOpen || aboutOpen || openEntry !== undefined || showControls;
+
+  // Hand over control once the car is clear of the garage.
+  useEffect(() => {
+    if (phase !== 'leaving') return;
+    const timer = window.setTimeout(() => setPhase('driving'), DRIVE_OUT_SECONDS * 1000);
+    return () => window.clearTimeout(timer);
+  }, [phase]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.repeat) return;
       if (event.code === 'KeyM') setMapOpen((open) => !open);
       if (event.code === 'Enter') {
-        // Enter opens whatever the car is standing at. Deliberately not
-        // automatic on approach — a panel that opens itself as you drive past
-        // is the world nagging.
         setOpenEntryId((current) => current ?? hud?.nearbyEntryId ?? null);
       }
       if (event.code === 'Escape') {
         setMapOpen(false);
+        setAboutOpen(false);
         setOpenEntryId(null);
+        setShowControls(false);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -62,6 +84,13 @@ export default function WorldCanvas({
     if (anchor === undefined) return;
     stateRef.current = stateAtAnchor(worldGraph, anchor);
     setMapOpen(false);
+    // Travelling by map leaves the garage behind, however you got there.
+    setPhase('driving');
+  }, []);
+
+  const start = useCallback((): void => {
+    setShowControls(false);
+    setPhase((current) => (current === 'garage' ? 'leaving' : current));
   }, []);
 
   return (
@@ -74,7 +103,14 @@ export default function WorldCanvas({
         camera={{ fov: 52, near: 0.5, far: 2400 }}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
       >
-        <Scene input={input} onHud={setHud} stateRef={stateRef} paused={paused} />
+        <Scene
+          input={input}
+          onHud={setHud}
+          stateRef={stateRef}
+          paused={paused}
+          leaving={phase === 'leaving'}
+          inGarage={phase === 'garage'}
+        />
       </Canvas>
 
       <DriveHud
@@ -83,7 +119,10 @@ export default function WorldCanvas({
         onExit={onExit}
         onOpenMap={() => setMapOpen(true)}
         onOpenEntry={setOpenEntryId}
-        panelOpen={openEntry !== undefined}
+        onOpenAbout={() => setAboutOpen(true)}
+        onOpenControls={() => setShowControls(true)}
+        panelOpen={openEntry !== undefined || aboutOpen}
+        controlsHidden={showControls}
       />
 
       <Minimap
@@ -95,6 +134,15 @@ export default function WorldCanvas({
 
       {openEntry !== undefined ? (
         <ProjectPanel entry={openEntry} onClose={() => setOpenEntryId(null)} />
+      ) : null}
+
+      {aboutOpen ? <AboutPanel onClose={() => setAboutOpen(false)} /> : null}
+
+      {showControls ? (
+        <IntroOverlay
+          onStart={start}
+          startLabel={phase === 'garage' ? 'Drive out of the garage' : 'Back to it'}
+        />
       ) : null}
     </div>
   );

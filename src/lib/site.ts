@@ -18,6 +18,20 @@ export const site = {
    * (DESIGN.md §2.3).
    */
   closingSign: 'still driving',
+  /**
+   * The About panel.
+   *
+   * Empty on purpose. The panel falls back to `pitch`, `role` and `location` —
+   * all facts already in this file — so it works today without anything being
+   * invented on Hussein's behalf.
+   *
+   * TODO(hussein): write two or three short paragraphs in your own voice.
+   * Where you're from, what you like building and why, what you are looking
+   * for next. This is the one place on the site that is allowed to be personal
+   * rather than factual, and it is the thing a hiring manager reads after they
+   * have decided they like the work.
+   */
+  about: [] as readonly string[],
 } as const;
 
 export const DISTRICT_LABELS: Record<string, string> = {

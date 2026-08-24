@@ -10,6 +10,7 @@ import { worldGraph, worldLamps, worldPlots, worldScenery } from './world';
 import { WORLD_COLORS } from './palette';
 import { Billboards } from './Billboards';
 import { Environment } from './Environment';
+import { Garage } from './Garage';
 import { RoadEnd } from './RoadEnd';
 import { Roads } from './Roads';
 import { Scenery } from './Scenery';
@@ -43,20 +44,45 @@ const PROMPT_DISTANCE = 170;
 /** A frame longer than this is a tab that was backgrounded, not a slow frame. */
 const MAX_FRAME_SECONDS = 0.05;
 
+/**
+ * How fast the car's body catches up to the direction it is travelling.
+ *
+ * The drive model changes direction instantly, which is right — the car is on a
+ * spline and its position must stay exact. But snapping the body 180° in one
+ * frame is what made turning around feel like a glitch rather than a
+ * manoeuvre. The body now swings round over about half a second while the
+ * position stays wherever the model says it is.
+ */
+const YAW_DAMPING = 7.5;
+/** Below this the swing is over; snap and stop paying for the interpolation. */
+const YAW_SETTLED = 0.004;
+
+/** Shortest signed angle from `from` to `to`, in radians. */
+function angleDelta(from: number, to: number): number {
+  return Math.atan2(Math.sin(to - from), Math.cos(to - from));
+}
+
 export function Scene({
   input,
   onHud,
   stateRef,
   paused,
+  leaving,
+  inGarage,
 }: {
   input: React.RefObject<InputBuffer>;
   onHud: (hud: HudState) => void;
   stateRef: React.RefObject<DriveState>;
   /** True while a panel or the map is open. The car coasts to a stop. */
   paused: boolean;
+  /** Opening sequence: the shutter is up and the car pulls out on its own. */
+  leaving: boolean;
+  /** True until the viewer has taken the wheel. */
+  inGarage: boolean;
 }): React.JSX.Element {
   const carRef = useRef<Group>(null);
   const lastHud = useRef<string>('');
+  const bodyYaw = useRef<number | null>(null);
 
   const publish = useCallback(
     (state: DriveState): void => {
@@ -104,7 +130,8 @@ export function Scene({
       {
         // A panel is a stop, not a pause: the car coasts down rather than
         // freezing mid-frame, and picks up again when the panel closes.
-        throttle: paused ? false : input.current.throttle,
+        // During the opening the car drives itself out of the garage.
+        throttle: paused ? false : leaving || input.current.throttle,
         steer: paused ? 0 : consumeSteer(input.current),
         flip: paused ? false : consumeFlip(input.current),
       },
@@ -117,7 +144,23 @@ export function Scene({
       const position = positionOf(worldGraph, next);
       const heading = headingOf(worldGraph, next);
       car.position.set(position.x, 0, position.z);
-      car.rotation.y = Math.atan2(heading.x, heading.z);
+
+      const target = Math.atan2(heading.x, heading.z);
+      if (bodyYaw.current === null) {
+        bodyYaw.current = target;
+      } else {
+        const difference = angleDelta(bodyYaw.current, target);
+        bodyYaw.current =
+          Math.abs(difference) < YAW_SETTLED
+            ? target
+            : bodyYaw.current + difference * (1 - Math.exp(-YAW_DAMPING * delta));
+      }
+      car.rotation.y = bodyYaw.current;
+
+      // Lean into the turn. Small, but it is the difference between the car
+      // rotating and the car turning.
+      const swing = angleDelta(bodyYaw.current, target);
+      car.rotation.z = Math.max(-0.16, Math.min(0.16, swing * 0.28));
     }
 
     publish(next);
@@ -138,6 +181,7 @@ export function Scene({
 
       <Environment />
 
+      <Garage graph={worldGraph} open={!inGarage} />
       <Roads graph={worldGraph} halfWidth={DEFAULT_LAYOUT_OPTIONS.roadHalfWidth} />
       <Scenery items={worldScenery} lamps={worldLamps} />
       <Billboards graph={worldGraph} />
@@ -148,7 +192,7 @@ export function Scene({
       ))}
 
       <Car ref={carRef} />
-      <ChaseCamera graph={worldGraph} stateRef={stateRef} />
+      <ChaseCamera graph={worldGraph} stateRef={stateRef} interior={inGarage} />
     </>
   );
 }

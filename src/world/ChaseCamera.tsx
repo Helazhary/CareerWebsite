@@ -17,15 +17,30 @@ import { type DriveState, headingOf, positionOf } from './drive';
 const DISTANCE = 44;
 const HEIGHT = 25;
 const LOOK_AHEAD = 30;
+
+/**
+ * Framing inside the garage.
+ *
+ * The touring camera sits 44 units back and 25 up, which is above the roof and
+ * behind the back wall — from in the garage it frames nothing at all. Indoors
+ * it pulls in close and drops to eye level, then the existing damping carries
+ * it back out to the touring shot as the car leaves.
+ */
+const INTERIOR_DISTANCE = 20;
+const INTERIOR_HEIGHT = 7.5;
+const INTERIOR_LOOK_AHEAD = 16;
 /** Higher is snappier. Low enough that junctions feel like a glide, not a cut. */
 const FOLLOW_DAMPING = 3.2;
 
 export function ChaseCamera({
   graph,
   stateRef,
+  interior,
 }: {
   graph: RoadGraph;
   stateRef: React.RefObject<DriveState>;
+  /** Frame for an enclosed space rather than open road. */
+  interior: boolean;
 }): null {
   const { camera } = useThree();
   const desired = useRef(new THREE.Vector3());
@@ -37,15 +52,19 @@ export function ChaseCamera({
     const position = positionOf(graph, state);
     const heading = headingOf(graph, state);
 
+    const distance = interior ? INTERIOR_DISTANCE : DISTANCE;
+    const height = interior ? INTERIOR_HEIGHT : HEIGHT;
+    const lookAhead = interior ? INTERIOR_LOOK_AHEAD : LOOK_AHEAD;
+
     desired.current.set(
-      position.x - heading.x * DISTANCE,
-      HEIGHT,
-      position.z - heading.z * DISTANCE,
+      position.x - heading.x * distance,
+      height,
+      position.z - heading.z * distance,
     );
     focus.current.set(
-      position.x + heading.x * LOOK_AHEAD,
-      3.5,
-      position.z + heading.z * LOOK_AHEAD,
+      position.x + heading.x * lookAhead,
+      interior ? 1.8 : 3.5,
+      position.z + heading.z * lookAhead,
     );
 
     // Snap on the first frame so the opening shot is framed, not swooping in
