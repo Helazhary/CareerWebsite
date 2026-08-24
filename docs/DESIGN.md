@@ -4,7 +4,7 @@
 > world where every building is a job, a degree, or a project.
 > One click escapes to a plain resume for anyone in a hurry.
 
-Status: **M0 built and deployed. M1 (the 3D world) not started.**
+Status: **M0–M2.5 built and deployed. M3 in progress.**
 Owner: Hussein Elazhary
 Domain: helazhary.com (Cloudflare)
 
@@ -349,9 +349,13 @@ Deferred by decision; the schema already has the `showpiece` hook.
       digitization CV overlay, IntelliNote2 live editor, RISC-V pipeline stepper)
 - [ ] IntelliNote2 is not on the resume yet — add it there too?
 - [ ] Telegram bot repo not yet pushed to GitHub
-- [ ] Art direction: palette and time of day. Deferred by decision — v1 ships a
-      single neutral dusk palette and is restyled later.
+- [ ] Art direction: palette and time of day. v1 ships the single neutral dusk
+      palette as planned; still un-graded.
 
 **Resolved:** the Arcade is a short alley, not a full district — sample
 screenshots and outbound links where they exist. The Transformer–CNN video is an
 outbound link, not an embed. All nine projects ship in v1 at light content weight.
+The car's paint is sampled from Hussein's photographs rather than guessed, and
+the angel eye rings on the real car are modelled and cycle colour. The E36 photos
+are in `public/media/project-car/`; every other media folder is still empty, and
+`npm run dev:preview` stands in for them.

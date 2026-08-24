@@ -10,7 +10,7 @@ resume for visitors who want the short version.
 ## Stack
 
 Next.js (static export) · React 19 · TypeScript (strict) · Tailwind CSS 4 ·
-Zod · Vitest · Cloudflare Pages
+React Three Fiber · Zod · Vitest · Cloudflare Workers (static assets)
 
 No server, no database, no runtime secrets. `next build` emits static files and a
 CDN serves them.
@@ -25,6 +25,7 @@ npm run dev
 | Command | Purpose |
 | --- | --- |
 | `npm run dev` | Dev server on :3000 |
+| `npm run dev:preview` | Dev server with placeholder media for projects without photos |
 | `npm run check` | typecheck + lint + test |
 | `npm run build` | Static export into `out/` |
 | `npm run new:project` | Scaffold a new content entry |
