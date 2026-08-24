@@ -13,7 +13,15 @@ export const WORLD_COLORS = {
   road: '#39424f',
   kerb: '#6b7690',
   centreLine: '#98a2b8',
-  car: '#4a83e8',
+  /**
+   * Sampled from Hussein's own photos of the car (DESIGN.md §2.6), taking the
+   * median of paint-coloured pixels across three shots in different light:
+   * overcast, harsh sun and shade. All three agree on hue ~215°. Kept
+   * deliberately darker than the sampled midtone because scene lighting lifts
+   * it. The paint code is not recorded anywhere — this matches the photographs,
+   * it does not claim to name the colour.
+   */
+  car: '#2b4576',
   carGlass: '#1a2130',
   tyre: '#15181f',
 } as const;
