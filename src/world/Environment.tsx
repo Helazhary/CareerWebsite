@@ -5,8 +5,7 @@ import { useFrame } from '@react-three/fiber';
 import type { Group } from 'three';
 import * as THREE from 'three';
 import { makeDesertMask, makeDesertTexture, makeGroundTexture } from './textures';
-import { SUN_DIRECTION } from './palette';
-import { WORLD_COLORS } from './palette';
+import { SUN_DIRECTION, WORLD_COLORS } from './palette';
 
 /**
  * Sky, ground and the far horizon.
@@ -243,20 +242,58 @@ function Desert(): React.JSX.Element | null {
   );
 }
 
-/** Three of them, as seen from the city: two large, one small, off to one side. */
+/**
+ * Three of them, as seen from Cairo: two large, one small, off to one side.
+ *
+ * **Sunward, and deliberately.** They used to sit opposite the sun, where a
+ * dark silhouette against a dark sky is not a silhouette at all — the largest
+ * read as a faint smudge and the other two were never visible from anywhere,
+ * because their apexes sat *below* the ridge line. Giza is west of Cairo and
+ * you see it against the sunset. So does this.
+ *
+ * Placed by bearing off the sun rather than in absolute coordinates, so the
+ * cluster follows if the sun ever moves — the same reason `Sun.tsx` derives its
+ * offset from `SUN_DIRECTION`.
+ */
+const SUN_BEARING = Math.atan2(SUN_DIRECTION.z, SUN_DIRECTION.x);
+
+/**
+ * Bearing measured off the sun, positive towards the westward run of the road.
+ *
+ * The cluster has to satisfy two things at once and there is only a narrow
+ * window that does both. It must sit inside the warm band, or the silhouettes
+ * have nothing to be silhouettes against — and it must fall within about 38° of
+ * the heading you actually drive, or you never see it without dragging to look
+ * around. Placed purely by prettiness it lands 50° off-axis, which is exactly
+ * where the first attempt at this ended up.
+ */
+function placeBySun(degreesOffSun: number, distance: number): { x: number; z: number } {
+  const bearing = SUN_BEARING + (degreesOffSun * Math.PI) / 180;
+  return { x: Math.cos(bearing) * distance, z: Math.sin(bearing) * distance };
+}
+
+/**
+ * A cone's `size` is the circumradius of its square base — the half-*diagonal*,
+ * not the half-width. 1.13x the height puts the faces at roughly the slope of
+ * the real thing.
+ */
+const BASE_TO_HEIGHT = 1.13;
+/** Sunk slightly, so the bases meet the ridge instead of hovering over it. */
+const BURIED = 14;
+
 function Pyramids(): React.JSX.Element {
   const shapes = useMemo(
     () =>
-      // Beyond the ring of hills and tall enough to stand above them. Placed
-      // any nearer they stop being landmarks and become large objects in the
-      // next field, which is exactly how the first attempt looked.
-      // At a fixed offset from the camera, so whatever reads well here reads
-      // well everywhere. Sized to stand above the ridge line without dominating
-      // it — roughly 90px tall at this distance and field of view.
+      // Each height is set against the ridge at that particular bearing, which
+      // runs between 2.5° and 4.5° of elevation across this window. The large
+      // pair stand 7° and 6.3° up, the small one 4°. Anything shorter than the
+      // ridge beneath it is simply not in the scene however carefully it is
+      // placed, which is what happened to two of the previous three — so the
+      // small one takes the bearing where the ridge runs lowest.
       [
-        { x: 1750, z: -1150, size: 235, height: 205 },
-        { x: 2010, z: -960, size: 190, height: 168 },
-        { x: 2170, z: -845, size: 108, height: 96 },
+        { ...placeBySun(3, 1950), height: 150 },
+        { ...placeBySun(9, 2000), height: 262 },
+        { ...placeBySun(17, 2150), height: 252 },
       ] as const,
     [],
   );
@@ -266,11 +303,11 @@ function Pyramids(): React.JSX.Element {
       {shapes.map((shape) => (
         <mesh
           key={`${shape.x}:${shape.z}`}
-          position={[shape.x, shape.height / 2 - 14, shape.z]}
+          position={[shape.x, shape.height / 2 - BURIED, shape.z]}
           rotation={[0, Math.PI / 4, 0]}
         >
           {/* A four-sided cone is a pyramid, and costs eight triangles. */}
-          <coneGeometry args={[shape.size, shape.height, 4]} />
+          <coneGeometry args={[shape.height * BASE_TO_HEIGHT, shape.height, 4]} />
           {/* Unfogged, like the hills. At this distance fog would erase them
               entirely; a flat silhouette against the sunset is the point. */}
           <meshBasicMaterial color={WORLD_COLORS.pyramid} fog={false} />

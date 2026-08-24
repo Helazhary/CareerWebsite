@@ -19,6 +19,7 @@ after that is built and on `main` but **has not been deployed**.
 | M3 — project panels, `/p/<id>`, Montreal detour, fog ending | on `main`, **not deployed** |
 | Garage / intro / About / look-around | on `main`, **not deployed** |
 | Directional sunset | on `main`, **not deployed** |
+| The pyramids, moved sunward and resized | on `main`, **not deployed** |
 | M4 — real car `.glb` | not started |
 | M5 — showpiece | not started |
 
@@ -128,10 +129,6 @@ These cost real time and are invisible in the finished code.
   `project-car` declares `'toolbox'` and `'car-lift'` in their `ambient`
   arrays. Unknown ids are ignored safely, so this is harmless — but it is a
   schema field doing nothing.
-- **The pyramids have never been seen properly.** They were invisible behind
-  the far-plane bug for the whole session, and were resized twice while
-  chasing an artifact that was not them. Their current size is a guess and
-  needs looking at.
 - **`npm run dev:preview` was the running server** for most of the session.
   Remember it fills empty galleries with placeholder cards. Use plain
   `npm run dev` to see the site as it actually ships.
