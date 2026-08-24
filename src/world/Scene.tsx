@@ -12,6 +12,7 @@ import { Roads } from './Roads';
 import { Plot } from './Plot';
 import { Car } from './Car';
 import { ChaseCamera } from './ChaseCamera';
+import { Sun } from './Sun';
 
 /** What the DOM overlay needs. Updated on change, never per frame. */
 export interface HudState {
@@ -104,11 +105,14 @@ export function Scene({
       <color attach="background" args={[WORLD_COLORS.sky]} />
       {/* Far enough out that the fog reads as distance, not as a wall. The
           road running into it is the closing shot (DESIGN.md §2.3). */}
-      <fog attach="fog" args={[WORLD_COLORS.fog, 340, 1150]} />
+      <fog attach="fog" args={[WORLD_COLORS.fog, 260, 980]} />
 
-      <ambientLight intensity={0.75} />
-      <hemisphereLight args={['#9fb4d4', '#141922', 1.35] as const} />
-      <directionalLight position={[160, 220, 90]} intensity={2.1} castShadow />
+      {/* Dusk, per DESIGN.md §10: one neutral palette, restyled later.
+          Kept dim enough that the lit windows, neon and signs actually read as
+          light sources rather than as slightly paler paint. */}
+      <ambientLight intensity={0.22} />
+      <hemisphereLight args={['#7d93bd', '#191d26', 0.85] as const} />
+      <Sun follow={carRef} />
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[6000, 6000]} />

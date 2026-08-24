@@ -7,9 +7,10 @@
 import type { District } from '@content/schema';
 
 export const WORLD_COLORS = {
-  sky: '#0e131c',
-  fog: '#0e131c',
-  ground: '#1d2430',
+  sky: '#131a26',
+  /** Warmer than the sky, so distance reads as haze rather than as a wall. */
+  fog: '#2a2c3a',
+  ground: '#1e2530',
   road: '#39424f',
   kerb: '#6b7690',
   centreLine: '#98a2b8',
