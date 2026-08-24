@@ -13,6 +13,7 @@ Contributor guide: `HOWTO.md`.
 | Command | What it does |
 | --- | --- |
 | `npm run dev` | Dev server on :3000 |
+| `npm run dev:preview` | Dev server with placeholder media for entries that have no photos. Never affects a real build. |
 | `npm run check` | typecheck + lint + test. Run before every commit. |
 | `npm run build` | Static export into `out/` |
 | `npm run new:project` | Scaffold a new content entry |
@@ -28,9 +29,16 @@ Contributor guide: `HOWTO.md`.
    never learns the name of a project.
 3. **Doc mode is the load-bearing mode.** It must work with no WebGL and render
    readable content without client-side JS. The 3D bundle is code-split and never
-   enters the doc-mode bundle.
-4. **`src/world/graph.ts` and `src/world/layout.ts` stay pure.** No Three.js
-   imports, no React, no DOM. They are plain functions with unit tests.
+   enters the doc-mode bundle. Verify against `out/`, not by reasoning: no chunk
+   referenced by `index.html` may contain `WebGLRenderer`.
+4. **The pure layer stays pure.** `graph.ts`, `layout.ts`, `drive.ts`,
+   `scatter.ts` and `signText.ts` have no Three.js, React or DOM imports. They
+   are plain functions with unit tests, and every geometric invariant lives
+   there — buildings never overlap, nothing grows in the road, the car can never
+   leave the graph.
+5. **Never invent content.** No dates, links, metrics or specifications that
+   Hussein did not supply, not even as filler. Preview mode exists for that;
+   see below.
 
 ## Conventions
 
@@ -43,5 +51,66 @@ Contributor guide: `HOWTO.md`.
 
 ## Current state
 
-M0 (doc mode, CI, hosting) is built. The 3D world (M1 onward) does not exist yet —
-`src/world/` is not created. See `docs/DESIGN.md` §9 for the milestone plan.
+**M0–M3 built.** M4 (the real car `.glb`) and M5 (a showpiece) remain.
+
+- **M0** — content pipeline, doc mode, CI, hosting.
+- **M1** — the world: road graph, plot layout, spline driving, junctions,
+  chase camera, minimap, capability probe.
+- **M2** — skin registry, canvas signs, construction sites, dusk lighting, and
+  the real car (paint sampled from Hussein's photographs, angel eye rings).
+- **M2.5** — the environment. Added mid-build: the spec detailed plots and roads
+  and nothing between them, so the world read as grey cubes on an empty plane.
+  Scenery scatter, road markings, verges, street lamps, building massing.
+- **M3** — project panels, `/p/<id>` deep links, the Montreal detour (a `detour`
+  schema flag, not a special case), and the road running on into fog.
+
+See `docs/DESIGN.md` §9 for the full plan.
+
+## How the world is put together
+
+```
+src/world/
+  graph.ts        pure  entries -> junctions, spline edges, plot anchors
+  layout.ts       pure  anchors -> building transforms, guaranteed not to overlap
+  drive.ts        pure  the car's state machine; junction choice is the only input
+  scatter.ts      pure  where trees, rocks and lamps stand
+  signText.ts     pure  how a title is wrapped and sized to fit a sign
+  skins/          the kit: one skin per schema `skin` value, plus shared parts
+  *.tsx           the React Three Fiber layer
+src/ui/           HUD and minimap — DOM over the canvas, not drawn into it
+src/preview/      dev-only placeholder media. Dead code in a real build.
+```
+
+**Adding visual variety means registering a set piece in the kit**, never
+extending a switch statement in `Plot.tsx`.
+
+## Preview mode
+
+`npm run dev:preview` fills entries that have no photographs with visibly
+labelled placeholder cards, so the site can be judged as a finished thing before
+the real media exists.
+
+It is gated on `NEXT_PUBLIC_PREVIEW`, unset in every real build, so the
+placeholder path is eliminated as dead code. A test asserts it is off by
+default. **Do not** work around this by putting fake content in
+`content/entries/` — that ships.
+
+## Things learned the hard way
+
+Kept because they cost real time and are invisible in the code.
+
+- **Splines must be arc-length parameterised.** Clamping endpoint control points
+  instead of reflecting them makes `u=0.25` sit at 20% along, so the car changes
+  speed mid-edge for no reason.
+- **Ribbon geometry winding is load-bearing.** Reverse a vertex pair and the
+  normals point at the ground: the mesh renders perfectly and is invisible from
+  above.
+- **Test final positions, not intermediate data.** The highway once rendered out
+  of chronological order while the anchors it came from were correct, and the
+  test asserting on anchors passed straight through the bug.
+- **Anything spaced with `floor(length / spacing)` skips short segments
+  entirely.** Street lamps missed exactly the stretches next to junctions.
+- **Lint rules about render-time mutation are right.** Components created during
+  render remount; effects that setState synchronously cascade. Use
+  `useSyncExternalStore` for probes, and mutate input buffers in the module that
+  owns them.

@@ -1,16 +1,22 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { type GraphEdge, type RoadGraph, normalAt, sampleEdge } from './graph';
 import { WORLD_COLORS } from './palette';
+import { makeRoadTexture } from './textures';
 
 const SAMPLES = 56;
 /** Lifted off the ground so the road does not z-fight with it. */
 const SURFACE_Y = 0.06;
 const MARKING_Y = 0.09;
 const KERB_WIDTH = 1.1;
-const CENTRE_LINE_WIDTH = 0.45;
+const CENTRE_LINE_WIDTH = 0.55;
+const EDGE_LINE_WIDTH = 0.34;
+const VERGE_WIDTH = 7;
+/** Dash and gap along the centre line, in world units. */
+const DASH = 9;
+const GAP = 7;
 
 /**
  * A flat ribbon following the spline between two lateral offsets.
@@ -51,37 +57,145 @@ function buildRibbon(edge: GraphEdge, from: number, to: number, y: number): THRE
   return geometry;
 }
 
+/**
+ * The centre line, broken into dashes.
+ *
+ * A solid painted line reads as a barrier and kills any sense of speed. Dashes
+ * streaming past the car are most of what makes driving feel like driving, and
+ * they cost one extra geometry per road.
+ */
+function buildDashes(edge: GraphEdge, halfWidth: number, y: number): THREE.BufferGeometry {
+  const positions: number[] = [];
+  const indices: number[] = [];
+  const period = DASH + GAP;
+  const count = Math.max(1, Math.floor(edge.length / period));
+
+  for (let d = 0; d < count; d += 1) {
+    const startU = (d * period) / edge.length;
+    const endU = Math.min((d * period + DASH) / edge.length, 1);
+    const steps = 4;
+
+    const base = positions.length / 3;
+    for (let i = 0; i <= steps; i += 1) {
+      const u = startU + ((endU - startU) * i) / steps;
+      const centre = sampleEdge(edge, u);
+      const outward = normalAt(edge, u, 1);
+      // Negative side first, matching buildRibbon. Reversing the pair flips the
+      // winding, which points the normals at the ground and makes the dashes
+      // invisible from above while still rendering perfectly.
+      positions.push(
+        centre.x - outward.x * halfWidth, y, centre.z - outward.z * halfWidth,
+        centre.x + outward.x * halfWidth, y, centre.z + outward.z * halfWidth,
+      );
+      if (i < steps) {
+        const left = base + i * 2;
+        const right = left + 1;
+        indices.push(left, right, left + 2, right, right + 2, left + 2);
+      }
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 interface Ribbon {
   readonly key: string;
   readonly geometry: THREE.BufferGeometry;
   readonly color: string;
 }
 
+/**
+ * A detour is somewhere else, so it does not look like the road that got you
+ * there. Snow carries the Montreal exchange semester visually rather than as a
+ * bullet point (DESIGN.md §2.3), and keys off the edge's structural kind — the
+ * renderer never learns which entry is on it.
+ */
+function surfaceFor(edge: GraphEdge): {
+  road: string;
+  kerb: string;
+  verge: string;
+  centre: string;
+  edgeLine: string;
+} {
+  if (edge.kind === 'detour') {
+    return {
+      road: WORLD_COLORS.snowRoad,
+      kerb: WORLD_COLORS.snowKerb,
+      verge: WORLD_COLORS.snowVerge,
+      centre: WORLD_COLORS.centreLine,
+      edgeLine: WORLD_COLORS.snowKerb,
+    };
+  }
+  return {
+    road: WORLD_COLORS.road,
+    kerb: WORLD_COLORS.kerb,
+    verge: WORLD_COLORS.verge,
+    centre: WORLD_COLORS.centreLine,
+    edgeLine: WORLD_COLORS.edgeLine,
+  };
+}
+
 export function Roads({ graph, halfWidth }: { graph: RoadGraph; halfWidth: number }): React.JSX.Element {
+  const asphalt = useMemo(() => {
+    const map = makeRoadTexture();
+    if (map !== null) map.repeat.set(6, 220);
+    return map;
+  }, []);
+  useEffect(() => () => asphalt?.dispose(), [asphalt]);
+
   const ribbons = useMemo<Ribbon[]>(
     () =>
-      graph.edges.flatMap((edge) => [
+      graph.edges.flatMap((edge) => {
+        const paint = surfaceFor(edge);
+        return [
+        // Verges first: they sit under everything and give the road an edge to
+        // meet, instead of tarmac stopping dead against open ground.
+        {
+          key: `${edge.id}-verge-left`,
+          geometry: buildRibbon(edge, halfWidth + KERB_WIDTH, halfWidth + KERB_WIDTH + VERGE_WIDTH, SURFACE_Y - 0.02),
+          color: WORLD_COLORS.verge,
+        },
+        {
+          key: `${edge.id}-verge-right`,
+          geometry: buildRibbon(edge, -halfWidth - KERB_WIDTH - VERGE_WIDTH, -halfWidth - KERB_WIDTH, SURFACE_Y - 0.02),
+          color: paint.verge,
+        },
         {
           key: `${edge.id}-surface`,
           geometry: buildRibbon(edge, -halfWidth, halfWidth, SURFACE_Y),
-          color: WORLD_COLORS.road,
+          color: paint.road,
         },
         {
           key: `${edge.id}-kerb-left`,
           geometry: buildRibbon(edge, halfWidth, halfWidth + KERB_WIDTH, MARKING_Y),
-          color: WORLD_COLORS.kerb,
+          color: paint.kerb,
         },
         {
           key: `${edge.id}-kerb-right`,
           geometry: buildRibbon(edge, -halfWidth - KERB_WIDTH, -halfWidth, MARKING_Y),
-          color: WORLD_COLORS.kerb,
+          color: paint.kerb,
+        },
+        {
+          key: `${edge.id}-edge-left`,
+          geometry: buildRibbon(edge, halfWidth - 1.5 - EDGE_LINE_WIDTH, halfWidth - 1.5, MARKING_Y),
+          color: paint.edgeLine,
+        },
+        {
+          key: `${edge.id}-edge-right`,
+          geometry: buildRibbon(edge, -halfWidth + 1.5, -halfWidth + 1.5 + EDGE_LINE_WIDTH, MARKING_Y),
+          color: paint.edgeLine,
         },
         {
           key: `${edge.id}-centre`,
-          geometry: buildRibbon(edge, -CENTRE_LINE_WIDTH, CENTRE_LINE_WIDTH, MARKING_Y),
-          color: WORLD_COLORS.centreLine,
+          geometry: buildDashes(edge, CENTRE_LINE_WIDTH, MARKING_Y),
+          color: paint.centre,
         },
-      ]),
+      ];
+      }),
     [graph, halfWidth],
   );
 
@@ -89,7 +203,14 @@ export function Roads({ graph, halfWidth }: { graph: RoadGraph; halfWidth: numbe
     <group>
       {ribbons.map(({ key, geometry, color }) => (
         <mesh key={key} geometry={geometry} receiveShadow>
-          <meshStandardMaterial color={color} roughness={0.95} metalness={0} />
+          <meshStandardMaterial
+            color={color}
+            // Only the carriageway is textured; markings and kerbs stay flat so
+            // the grain does not fight the paint.
+            map={key.endsWith('-surface') && !key.startsWith('detour-') ? asphalt : null}
+            roughness={0.95}
+            metalness={0}
+          />
         </mesh>
       ))}
     </group>

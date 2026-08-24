@@ -6,6 +6,7 @@
   },
   "scripts": {
     "dev": "next dev",
+    "dev:preview": "NEXT_PUBLIC_PREVIEW=1 next dev",
     "build": "next build",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

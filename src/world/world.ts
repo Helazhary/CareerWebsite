@@ -9,6 +9,9 @@
 import { entries } from '@content/registry';
 import { buildRoadGraph } from './graph';
 import { layoutPlots } from './layout';
+import { scatterLamps, scatterScenery } from './scatter';
 
 export const worldGraph = buildRoadGraph(entries);
 export const worldPlots = layoutPlots(worldGraph, entries);
+export const worldScenery = scatterScenery(worldGraph, worldPlots);
+export const worldLamps = scatterLamps(worldGraph);

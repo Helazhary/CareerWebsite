@@ -6,6 +6,7 @@ import {
   type DriveInput,
   type DriveState,
   branchOptions,
+  flipAround,
   headingOf,
   initialDriveState,
   positionOf,
@@ -14,8 +15,8 @@ import {
 } from '@/world/drive';
 
 const graph = buildRoadGraph(entries);
-const HOLD: DriveInput = { throttle: true, steer: 0 };
-const COAST: DriveInput = { throttle: false, steer: 0 };
+const HOLD: DriveInput = { throttle: true, steer: 0, flip: false };
+const COAST: DriveInput = { throttle: false, steer: 0, flip: false };
 const FRAME = 1 / 60;
 
 function drive(state: DriveState, input: DriveInput, seconds: number): DriveState {
@@ -131,7 +132,7 @@ describe('junctions', () => {
       if (!steered && options.length > 1 && spur >= 0) {
         const straight = straightAheadIndex(options);
         const direction = spur > straight ? 1 : -1;
-        state = step(graph, state, { throttle: true, steer: direction }, FRAME);
+        state = step(graph, state, { throttle: true, steer: direction, flip: false }, FRAME);
         steered = true;
         continue;
       }
@@ -170,6 +171,73 @@ describe('junctions', () => {
   });
 });
 
+describe('turning around', () => {
+  it('reverses the direction of travel and aims at the other end', () => {
+    const rolling = drive(initialDriveState(graph), HOLD, 2);
+    const edge = graph.edgeById.get(rolling.edgeId);
+    expect(edge).toBeDefined();
+    if (edge === undefined) return;
+
+    const turned = flipAround(graph, rolling);
+    expect(turned.direction).toBe(rolling.direction > 0 ? -1 : 1);
+    expect(turned.targetNodeId).not.toBe(rolling.targetNodeId);
+    expect(turned.edgeId).toBe(rolling.edgeId);
+  });
+
+  it('stops the car rather than lurching backwards at speed', () => {
+    const rolling = drive(initialDriveState(graph), HOLD, 3);
+    expect(rolling.speed).toBeGreaterThan(0);
+    expect(flipAround(graph, rolling).speed).toBe(0);
+  });
+
+  it('leaves the car exactly where it stood', () => {
+    const rolling = drive(initialDriveState(graph), HOLD, 2);
+    const before = positionOf(graph, rolling);
+    const after = positionOf(graph, flipAround(graph, rolling));
+    expect(after.x).toBeCloseTo(before.x, 6);
+    expect(after.z).toBeCloseTo(before.z, 6);
+  });
+
+  it('points the heading the opposite way', () => {
+    const rolling = drive(initialDriveState(graph), HOLD, 2);
+    const before = headingOf(graph, rolling);
+    const after = headingOf(graph, flipAround(graph, rolling));
+    const dot = before.x * after.x + before.z * after.z;
+    expect(dot).toBeLessThan(-0.98);
+  });
+
+  it('recomputes the default branch for the junction now ahead', () => {
+    // The old choice indexed the branches at the *other* end of the edge.
+    // Inheriting it would send the car down an arbitrary turning.
+    const rolling = drive(initialDriveState(graph), HOLD, 2);
+    const turned = flipAround(graph, rolling);
+    expect(turned.choice).toBe(straightAheadIndex(branchOptions(graph, turned)));
+  });
+
+  it('drives back the way it came after turning', () => {
+    let state = drive(initialDriveState(graph), HOLD, 3);
+    const wentTo = positionOf(graph, state).x;
+    state = drive(flipAround(graph, state), HOLD, 2);
+    expect(positionOf(graph, state).x).toBeLessThan(wentTo);
+  });
+
+  it('can be done through step(), as one-shot input', () => {
+    const rolling = drive(initialDriveState(graph), HOLD, 2);
+    const turned = step(graph, rolling, { throttle: true, steer: 0, flip: true }, FRAME);
+    expect(turned.direction).toBe(rolling.direction > 0 ? -1 : 1);
+  });
+
+  it('survives being turned around at a cul-de-sac', () => {
+    const spur = graph.edges.find((e) => e.district === 'lab');
+    if (spur === undefined) return;
+    const atEnd: DriveState = {
+      edgeId: spur.id, u: 0.99, direction: 1, speed: 0,
+      targetNodeId: spur.toId, choice: 0,
+    };
+    assertOnTheRoad(flipAround(graph, atEnd));
+  });
+});
+
 describe('the car cannot leave the road', () => {
   it('survives sustained random input without ever leaving the graph', () => {
     // Deterministic pseudo-random so a failure is reproducible.
@@ -185,6 +253,7 @@ describe('the car cannot leave the road', () => {
       const input: DriveInput = {
         throttle: roll > 0.2,
         steer: roll > 0.95 ? 1 : roll < 0.05 ? -1 : 0,
+        flip: roll > 0.49 && roll < 0.495,
       };
       state = step(graph, state, input, FRAME);
       assertOnTheRoad(state);
@@ -216,7 +285,7 @@ describe('the car cannot leave the road', () => {
         return edge !== undefined && !reached.has(otherEnd(edge, state.targetNodeId));
       });
       const steer = unvisited > state.choice ? 1 : unvisited < state.choice && unvisited >= 0 ? -1 : 0;
-      state = step(graph, state, { throttle: true, steer }, FRAME);
+      state = step(graph, state, { throttle: true, steer, flip: false }, FRAME);
       reached.add(state.targetNodeId);
     }
 

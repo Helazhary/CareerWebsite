@@ -40,6 +40,15 @@ npm run dev
 Opens http://localhost:3000. Edits appear immediately.
 
 ```bash
+npm run dev:preview
+```
+
+Same, but every project with no photographs shows labelled placeholder cards
+instead of an empty gallery. Use it to judge how the site looks before you go
+hunting for media. Placeholders can never reach the live site — they are
+compiled out of a real build.
+
+```bash
 npm run check
 ```
 
@@ -165,6 +174,24 @@ defined — nothing hardcodes a colour anywhere else.
 **Page layout** lives in `src/app/*/page.tsx` and the components in `src/doc/`.
 This is the part worth asking Claude to change rather than hand-editing.
 
+### The 3D world
+
+Different palette, different file. `src/world/palette.ts` holds the world's
+colours — sky, fog, ground, road, the car's paint, and one tint per district.
+The car's blue was sampled from your own photographs, so change it only if you
+repaint the car.
+
+**How a building looks** is decided by its `skin` field, and each skin is
+registered in `src/world/skins/registry.tsx`. Adding a new look means adding a
+skin there, never adding a special case somewhere. `parts.tsx` holds the shared
+pieces — shells, plinths, roofs, roll-up doors, lit window bands.
+
+**Signs draw themselves** from the entry title. You never make a sign.
+
+**Trees, rocks and street lamps** are placed by `src/world/scatter.ts` from a
+fixed seed, so the world looks the same on every build. Change the seed and you
+get a different but equally valid world.
+
 ---
 
 ## 7. Deploy
@@ -177,9 +204,13 @@ git commit -m "Add NIR spectroscopy photos"
 git push
 ```
 
-Cloudflare Pages sees the commit, runs `npm run build`, and publishes `out/` to
+Cloudflare sees the commit, runs `npm run build`, and publishes `out/` to
 helazhary.com. Takes about a minute. Pull requests get their own preview URL, so
 you can look at a change before it goes live.
+
+The site runs as a **Worker serving static assets**, not Cloudflare Pages. Config
+is `wrangler.jsonc` at the repo root; the Worker is named `careerwebsite` and the
+name must match or the deploy silently creates a second Worker.
 
 Setup steps, if it is not connected yet: `docs/CLOUDFLARE.md`.
 
@@ -198,12 +229,16 @@ so you do not need to re-explain the project. `docs/DESIGN.md` has the full plan
 
 > Change the accent colour to something closer to my car's blue, and show me both versions.
 
-> Read docs/DESIGN.md §9 and start M1.
+> Read docs/DESIGN.md §9 and start the next milestone.
 
 **Things worth saying:**
 
 - *"Run `npm run check` when you're done"* — it will anyway, but saying it makes
   the pass/fail explicit in the transcript.
+- *"Show me a screenshot of it driving"* — for anything in the 3D world, a
+  screenshot catches what tests cannot. Two real bugs were found that way: road
+  markings that rendered perfectly while facing the ground, and junctions with no
+  street lighting.
 - *"Show me the page"* — Claude can start the dev server and look at the rendered
   result rather than guessing from the code.
 - *"Don't touch the schema for this"* — keeps a small change small.
@@ -231,8 +266,17 @@ You did not run `npm run content:sync`.
 Run `npx eslint . --fix` first; most issues are auto-fixable.
 
 **The build works locally but Cloudflare fails**
-Check the Cloudflare build log. Usually the Node version — it must be 22, set via
-the `NODE_VERSION` environment variable in the Pages project settings.
+Check the Cloudflare build log: Worker → Deployments → View build.
+
+**The build goes green but the live site does not change**
+The production deploy command is `npx wrangler versions upload`, which stages a
+version without sending traffic to it. It needs to be `npx wrangler deploy`.
+
+**The world does not appear, only the resume**
+That is usually correct. Drive mode is skipped on phones, on coarse pointers, at
+viewports under 900×520, when the browser reports `prefers-reduced-motion`, and
+when WebGL is unavailable. There is a "Drive it instead" button for anyone it
+turned away.
 
 **An image 404s**
 The filename in `media[].src` must match the file in `public/media/<entry id>/`

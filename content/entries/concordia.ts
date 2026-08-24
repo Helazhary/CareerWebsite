@@ -9,6 +9,8 @@ const entry: EntryInput = {
   start: '2024-09',
   end: '2024-12',
   district: 'highway',
+  // A semester in Montreal, told as a detour off the main road (DESIGN.md §2.3).
+  detour: true,
   skin: 'campus',
   size: 'sm',
   tags: ['Exchange', 'Montreal'],

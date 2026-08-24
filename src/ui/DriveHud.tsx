@@ -1,29 +1,40 @@
 'use client';
 
 import Link from 'next/link';
+import { entries } from '@content/registry';
 import type { HudState } from '@/world/Scene';
 import { DISTRICT_LABELS, site } from '@/lib/site';
-import { type InputBuffer, queueSteer, setThrottle } from '@/world/useDriveInput';
+import { type InputBuffer, queueFlip, queueSteer, setThrottle } from '@/world/useDriveInput';
 
 /**
  * The DOM overlay. Plain HTML on top of the canvas, so the name, the title and
  * the two escape hatches are on screen in the first frame — before a single
  * byte of the 3D bundle has parsed (DESIGN.md §1, the anti-annoyance contract).
  */
+/** Titles by id, built once. The HUD reads content; it does not embed it. */
+const TITLES = new Map(entries.map((entry) => [entry.id, entry.title]));
+
 export function DriveHud({
   hud,
   input,
   onExit,
   onOpenMap,
+  onOpenEntry,
+  panelOpen,
 }: {
   hud: HudState | null;
   input: React.RefObject<InputBuffer>;
   onExit: () => void;
   onOpenMap: () => void;
+  onOpenEntry: (entryId: string) => void;
+  panelOpen: boolean;
 }): React.JSX.Element {
   const branches = hud?.branches ?? [];
   // A choice, and close enough for it to be about the junction in front of you.
   const atJunction = branches.length > 1 && Number.isFinite(hud?.distanceToJunction ?? Infinity);
+
+  const nearbyId = hud?.nearbyEntryId ?? null;
+  const nearby = nearbyId === null ? undefined : TITLES.get(nearbyId);
 
   const press = (steer: -1 | 1) => () => queueSteer(input.current, steer);
   const hold = (throttle: boolean) => () => setThrottle(input.current, throttle);
@@ -66,6 +77,23 @@ export function DriveHud({
         </nav>
       </header>
 
+      {/* What you are standing at. An offer, not an interruption — the panel
+          never opens itself as you drive past. */}
+      {nearby !== undefined && nearbyId !== null && !panelOpen ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-40 z-10 flex justify-center px-4 sm:bottom-44">
+          <button
+            type="button"
+            onClick={() => onOpenEntry(nearbyId)}
+            className="pointer-events-auto flex items-center gap-2 rounded-full border border-line bg-surface/90 px-4 py-2 text-xs backdrop-blur transition hover:border-accent sm:text-sm"
+          >
+            <kbd className="rounded border border-line px-1.5 py-0.5 font-mono text-[11px]">
+              ⏎
+            </kbd>
+            <span className="font-medium text-text">{nearby}</span>
+          </button>
+        </div>
+      ) : null}
+
       {/* Junction prompt: ◀ The Lab │ Highway ▶ */}
       {atJunction ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-24 z-10 flex justify-center px-4 sm:bottom-28">
@@ -103,6 +131,14 @@ export function DriveHud({
         </button>
         <button
           type="button"
+          aria-label="Turn the car around"
+          onPointerDown={() => queueFlip(input.current)}
+          className="flex-1 rounded-lg border border-line bg-surface/70 text-sm text-text backdrop-blur active:bg-surface"
+        >
+          ↻
+        </button>
+        <button
+          type="button"
           aria-label="Drive forward"
           onPointerDown={hold(true)}
           onPointerUp={hold(false)}
@@ -126,7 +162,8 @@ export function DriveHud({
       <p className="pointer-events-none absolute inset-x-0 bottom-4 z-10 hidden text-center text-xs text-muted sm:block">
         Hold <kbd className="rounded border border-line px-1">W</kbd> to drive ·{' '}
         <kbd className="rounded border border-line px-1">←</kbd>{' '}
-        <kbd className="rounded border border-line px-1">→</kbd> to choose at a junction ·{' '}
+        <kbd className="rounded border border-line px-1">→</kbd> at a junction ·{' '}
+        <kbd className="rounded border border-line px-1">S</kbd> to turn around ·{' '}
         <kbd className="rounded border border-line px-1">M</kbd> for the map
       </p>
     </>

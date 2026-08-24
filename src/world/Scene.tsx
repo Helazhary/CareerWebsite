@@ -5,13 +5,19 @@ import { useCallback, useRef } from 'react';
 import type { Group } from 'three';
 import { DEFAULT_LAYOUT_OPTIONS } from './layout';
 import { type DriveState, branchOptions, headingOf, positionOf, step } from './drive';
-import { type InputBuffer, consumeSteer } from './useDriveInput';
-import { worldGraph, worldPlots } from './world';
+import { type InputBuffer, consumeFlip, consumeSteer } from './useDriveInput';
+import { worldGraph, worldLamps, worldPlots, worldScenery } from './world';
 import { WORLD_COLORS } from './palette';
+import { Billboards } from './Billboards';
+import { Environment } from './Environment';
+import { RoadEnd } from './RoadEnd';
 import { Roads } from './Roads';
+import { Scenery } from './Scenery';
 import { Plot } from './Plot';
 import { Car } from './Car';
 import { ChaseCamera } from './ChaseCamera';
+import { Sun } from './Sun';
+import { nearestPlot } from './proximity';
 
 /** What the DOM overlay needs. Updated on change, never per frame. */
 export interface HudState {
@@ -21,6 +27,8 @@ export interface HudState {
   readonly speed: number;
   /** World units still to run before the junction. Gates the prompt. */
   readonly distanceToJunction: number;
+  /** The building the car is at, if any. */
+  readonly nearbyEntryId: string | null;
 }
 
 /**
@@ -39,10 +47,13 @@ export function Scene({
   input,
   onHud,
   stateRef,
+  paused,
 }: {
   input: React.RefObject<InputBuffer>;
   onHud: (hud: HudState) => void;
   stateRef: React.RefObject<DriveState>;
+  /** True while a panel or the map is open. The car coasts to a stop. */
+  paused: boolean;
 }): React.JSX.Element {
   const carRef = useRef<Group>(null);
   const lastHud = useRef<string>('');
@@ -60,11 +71,17 @@ export function Scene({
         district: option.district,
       }));
 
+      const nearby = nearestPlot(
+        positionOf(worldGraph, state),
+        headingOf(worldGraph, state),
+        worldPlots,
+      );
+
       // Bucketed so the overlay re-renders on meaningful change, not at 60 Hz.
       const approaching = remaining < PROMPT_DISTANCE;
       const signature = `${state.targetNodeId}|${state.choice}|${branches
         .map((b) => b.edgeId)
-        .join(',')}|${approaching}|${Math.round(state.speed / 10)}`;
+        .join(',')}|${approaching}|${nearby?.entryId ?? ''}|${Math.round(state.speed / 10)}`;
       if (signature === lastHud.current) return;
       lastHud.current = signature;
 
@@ -74,6 +91,7 @@ export function Scene({
         branches,
         speed: state.speed,
         distanceToJunction: approaching ? remaining : Number.POSITIVE_INFINITY,
+        nearbyEntryId: nearby?.entryId ?? null,
       });
     },
     [onHud],
@@ -83,7 +101,13 @@ export function Scene({
     const next = step(
       worldGraph,
       stateRef.current,
-      { throttle: input.current.throttle, steer: consumeSteer(input.current) },
+      {
+        // A panel is a stop, not a pause: the car coasts down rather than
+        // freezing mid-frame, and picks up again when the panel closes.
+        throttle: paused ? false : input.current.throttle,
+        steer: paused ? 0 : consumeSteer(input.current),
+        flip: paused ? false : consumeFlip(input.current),
+      },
       Math.min(delta, MAX_FRAME_SECONDS),
     );
     stateRef.current = next;
@@ -101,21 +125,23 @@ export function Scene({
 
   return (
     <>
-      <color attach="background" args={[WORLD_COLORS.sky]} />
       {/* Far enough out that the fog reads as distance, not as a wall. The
           road running into it is the closing shot (DESIGN.md §2.3). */}
-      <fog attach="fog" args={[WORLD_COLORS.fog, 340, 1150]} />
+      <fog attach="fog" args={[WORLD_COLORS.fog, 320, 1450]} />
 
-      <ambientLight intensity={0.75} />
-      <hemisphereLight args={['#9fb4d4', '#141922', 1.35] as const} />
-      <directionalLight position={[160, 220, 90]} intensity={2.1} castShadow />
+      {/* Dusk, per DESIGN.md §10: one neutral palette, restyled later.
+          Kept dim enough that the lit windows, neon and signs actually read as
+          light sources rather than as slightly paler paint. */}
+      <ambientLight intensity={0.4} />
+      <hemisphereLight args={['#8ea6cd', '#20281f', 1.05] as const} />
+      <Sun follow={carRef} />
 
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[6000, 6000]} />
-        <meshStandardMaterial color={WORLD_COLORS.ground} roughness={1} />
-      </mesh>
+      <Environment />
 
       <Roads graph={worldGraph} halfWidth={DEFAULT_LAYOUT_OPTIONS.roadHalfWidth} />
+      <Scenery items={worldScenery} lamps={worldLamps} />
+      <Billboards graph={worldGraph} />
+      <RoadEnd graph={worldGraph} />
 
       {worldPlots.map((transform) => (
         <Plot key={transform.entryId} transform={transform} />

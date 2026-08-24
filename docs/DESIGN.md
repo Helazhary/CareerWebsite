@@ -4,7 +4,7 @@
 > world where every building is a job, a degree, or a project.
 > One click escapes to a plain resume for anyone in a hurry.
 
-Status: **M0 built and deployed. M1 (the 3D world) not started.**
+Status: **M0–M3 built. M4 (the real car model) and M5 (a showpiece) remain.**
 Owner: Hussein Elazhary
 Domain: helazhary.com (Cloudflare)
 
@@ -90,7 +90,9 @@ Narrative beats worth preserving:
 - The world **starts in the garage**, with the real car. You drive out of your own
   garage into your career.
 - The **Montreal detour** is a short bridge off the highway with snow — the
-  Concordia exchange semester, told visually instead of as a bullet.
+  Concordia exchange semester, told visually instead of as a bullet. Driven by a
+  `detour` flag on the entry, not by its id, so any future secondment or
+  exchange gets the same treatment for free.
 - **Darwinz appears twice** (2022 and 2025). Same building, second visit, sign
   reads "welcome back." It communicates a rehire without claiming anything.
 - **Qortova is the largest structure**, and the road continues past it into fog.
@@ -325,6 +327,14 @@ No art. Prove the navigation feels good before making it pretty.
 **M2 — Skins and props.** Plot skins per district, canvas signs, ambient props,
 construction sites, lighting, fog.
 
+**M2.5 — The environment.** Added after M2, when the world turned out to read
+as grey cubes on an empty plane. The plots and roads were specified in detail
+and everything *between* them was not, so there was nothing to build against.
+Covers: road surface detail and markings, verges, ground variation, planting
+and street furniture scattered by a pure seeded function, and enough massing
+variety that a building stops reading as a cube. Scatter is instanced from the
+start — this is where the draw-call budget in §8 is actually spent.
+
 **M3 — Panels and polish.** Project panels, deep links, mode transitions,
 keyboard nav, the Montreal detour, the fog ending.
 
@@ -341,9 +351,13 @@ Deferred by decision; the schema already has the `showpiece` hook.
       digitization CV overlay, IntelliNote2 live editor, RISC-V pipeline stepper)
 - [ ] IntelliNote2 is not on the resume yet — add it there too?
 - [ ] Telegram bot repo not yet pushed to GitHub
-- [ ] Art direction: palette and time of day. Deferred by decision — v1 ships a
-      single neutral dusk palette and is restyled later.
+- [ ] Art direction: palette and time of day. v1 ships the single neutral dusk
+      palette as planned; still un-graded.
 
 **Resolved:** the Arcade is a short alley, not a full district — sample
 screenshots and outbound links where they exist. The Transformer–CNN video is an
 outbound link, not an embed. All nine projects ship in v1 at light content weight.
+The car's paint is sampled from Hussein's photographs rather than guessed, and
+the angel eye rings on the real car are modelled and cycle colour. The E36 photos
+are in `public/media/project-car/`; every other media folder is still empty, and
+`npm run dev:preview` stands in for them.

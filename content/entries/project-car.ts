@@ -18,8 +18,23 @@ const entry: EntryInput = {
     "Developed an AI voice assistant for the car's Android head unit, deployed on Google Cloud Run.",
     'Integrated Gemini and OpenAI with ElevenLabs TTS/STT for hands-free interaction while driving.',
   ],
-  // TODO(hussein): drop photos of the real car into public/media/project-car/ and list them here.
-  media: [],
+  media: [
+    {
+      src: 'three-quarter-front.jpg',
+      alt: 'Metallic blue BMW E36 saloon parked on brick paving, seen from the front three-quarter, with gold split-spoke wheels, angel eye headlight rings and a black front splitter, beaded with rain',
+      caption: 'Gold split-spokes and angel eye rings.',
+    },
+    {
+      src: 'sunset-overpass.jpg',
+      alt: 'The blue E36 parked on gravel beneath a concrete overpass at sunset, silhouetted against an orange sky',
+      caption: 'Parked under the overpass at sunset.',
+    },
+    {
+      src: 'engine-bay.jpg',
+      alt: 'The E36 engine bay with the bonnet raised, showing a polished strut brace across the suspension towers, a red cone intake filter, and the four angel eye rings in the opened headlight housings below',
+      caption: 'Strut brace and cone intake, headlight housings opened up.',
+    },
+  ],
   ambient: ['toolbox', 'car-lift'],
 };
 

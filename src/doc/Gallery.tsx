@@ -1,20 +1,25 @@
 import Image from 'next/image';
 import type { Entry } from '@content/schema';
+import { previewMedia } from '@/preview/placeholders';
 
 export function Gallery({ entry }: { entry: Entry }) {
-  if (entry.media.length === 0) return null;
+  const items = previewMedia(entry);
+  if (items.length === 0) return null;
 
   return (
     <ul className="mt-6 grid gap-4 sm:grid-cols-2">
-      {entry.media.map((item) => (
+      {items.map((item) => (
         <li key={item.src}>
           <div className="relative aspect-[4/3] overflow-hidden rounded-md border border-line bg-surface">
             <Image
-              src={`/media/${entry.id}/${item.src}`}
+              src={item.src}
               alt={item.alt}
               fill
               sizes="(max-width: 640px) 100vw, 50vw"
               className="object-cover"
+              // Placeholders are inline SVG data URIs, which the optimiser has
+              // nothing useful to do with.
+              unoptimized={item.placeholder}
             />
           </div>
           {item.caption ? (

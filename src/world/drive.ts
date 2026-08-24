@@ -43,6 +43,8 @@ export interface DriveInput {
   readonly throttle: boolean;
   /** One-shot: -1 steers the choice left, +1 right, 0 leaves it alone. */
   readonly steer: -1 | 0 | 1;
+  /** One-shot: turn the car around where it stands. */
+  readonly flip: boolean;
 }
 
 export interface DriveOptions {
@@ -140,6 +142,34 @@ export function straightAheadIndex(options: readonly BranchOption[]): number {
   return best;
 }
 
+/**
+ * Turn the car around on the spot.
+ *
+ * Chosen over a true reverse gear because the camera is a fixed chase camera:
+ * reversing would mean driving backwards with the view pointing the way you
+ * came, which is disorienting for no gain. Flipping keeps the road ahead in
+ * shot and needs no new controls.
+ *
+ * Speed drops to zero so a flip at pace is a stop and a turn, not a lurch
+ * backwards at 90 units a second.
+ */
+export function flipAround(graph: RoadGraph, state: DriveState): DriveState {
+  const edge = graph.edgeById.get(state.edgeId);
+  if (edge === undefined) return state;
+
+  const direction: 1 | -1 = state.direction > 0 ? -1 : 1;
+  const turned: DriveState = {
+    ...state,
+    direction,
+    speed: 0,
+    targetNodeId: direction > 0 ? edge.toId : edge.fromId,
+    choice: 0,
+  };
+  // The junction ahead is a different junction now, so the default branch has
+  // to be recomputed or the car inherits a choice meant for the other end.
+  return { ...turned, choice: straightAheadIndex(branchOptions(graph, turned)) };
+}
+
 /** Put the car at the start of the world, facing down the road. */
 export function initialDriveState(graph: RoadGraph): DriveState {
   const spawn = graph.nodeById.get(graph.spawnNodeId);
@@ -213,7 +243,7 @@ export function step(
   const rate = input.throttle ? options.acceleration : options.deceleration;
   const speed = approach(state.speed, target, rate * dt);
 
-  let current: DriveState = { ...state, speed };
+  let current: DriveState = input.flip ? flipAround(graph, state) : { ...state, speed };
 
   if (input.steer !== 0) {
     const available = branchOptions(graph, current);
