@@ -8,3 +8,6 @@ out/
 .vercel
 .claude/settings.local.json
 .playwright-mcp/
+
+# Screenshot artifacts from browser tooling, which defaults to the repo root.
+/*.png
