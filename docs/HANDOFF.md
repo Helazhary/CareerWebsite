@@ -7,9 +7,8 @@ Read this, then `CLAUDE.md`, then `docs/DESIGN.md` §9 for the milestone plan.
 
 ## 1. Where the project stands
 
-**M0–M3 are built.** M0–M2.5 are deployed and live on helazhary.com. M3 (panels,
-deep links, Montreal detour, fog ending) is built and merged to `main` but **has
-not been deployed**, and neither has anything after it.
+**M0–M3 are built.** M0–M2.5 are deployed and live on helazhary.com. Everything
+after that is built and on `main` but **has not been deployed**.
 
 | Milestone | State |
 | --- | --- |
@@ -17,99 +16,68 @@ not been deployed**, and neither has anything after it.
 | M1 — road graph, driving, camera, minimap | live |
 | M2 — skins, signs, construction sites, dusk lighting, the real car | live |
 | M2.5 — environment: textures, sky, hills, scenery, billboards | live |
-| M3 — project panels, `/p/<id>`, Montreal detour, fog ending | merged, **not deployed** |
-| Garage / intro / About / look-around / sunset | **local only** |
+| M3 — project panels, `/p/<id>`, Montreal detour, fog ending | on `main`, **not deployed** |
+| Garage / intro / About / look-around | on `main`, **not deployed** |
+| Directional sunset | on `main`, **not deployed** |
 | M4 — real car `.glb` | not started |
 | M5 — showpiece | not started |
 
-`main` is **4 commits ahead of `origin/main`**, plus uncommitted work. Nothing
+`main` is **5 commits ahead of `origin/main`**. Working tree is clean. Nothing
 after PR #7 has been pushed.
 
 ---
 
-## 2. THE OPEN BUG — start here
+## 2. The "W does not move the car" bug — CLOSED, it was never real
 
-**Holding `W` does not move the car.** It sits at spawn inside the garage.
+Verified by hand on 2026-08-24: hold `W` and the car drives. Measured with the
+minimap marker, `x` goes from `-90` to `+123.4` over a three-second hold.
 
-This is the thing to fix first. Everything else below is secondary.
+**It was the test harness, not the app.** Every driving test in the previous
+session used synthetic `KeyboardEvent`s. Every key handler in this codebase
+dispatches on `event.code`, and the harness was delivering events with `code`
+set to the empty string, so no key did anything.
 
-### What is known
+### If you are about to test driving, read this first
 
-- The car's position stays at spawn (`x ≈ -88`), confirmed by reading the
-  minimap marker's `transform` attribute before and after a 3-second hold.
-- `M` (map) **does** work, and it is also a `window` keydown listener — so
-  window key listeners are firing. The problem is specific to the throttle
-  path in `src/world/useDriveInput.ts` → `src/world/Scene.tsx`.
-- All 117 unit tests pass, including the driving fuzz test. The pure model in
-  `src/world/drive.ts` is almost certainly fine; this is in the wiring.
-- It worked earlier in the same session. A measured test gave `x = -11.7`
-  after a 1.6 s press plus coast. It broke somewhere between that point and
-  the end of the session.
+- **The in-app Browser pane's `computer {action: "key"}` cannot drive this
+  site.** Its key events arrive `isTrusted: true` but with `code: ""`. `W`, `M`,
+  `S`, `Escape` — none of them fire. This is not a bug in the site.
+- **Use the Playwright MCP instead.** `page.keyboard.down('w')` sets `code`
+  correctly and works. `browser_run_code_unsafe` is how you hold a key for a
+  measured duration; `browser_press_key` only taps.
+- **Dismiss the intro overlay first.** `showControls` starts `true`, which makes
+  `paused` true in `WorldCanvas`, which forces `throttle: false` in `Scene`. The
+  car genuinely cannot move until "Take the wheel" is clicked. This alone looks
+  exactly like the bug.
+- **Reading position costs you a pause.** The minimap marker only updates while
+  the map is open, and having the map open pauses the car. Read, close, drive,
+  reopen, read.
 
-### Important caveat
+### Stale processes will block you
 
-**Every driving test in that session used synthetic `KeyboardEvent`s**
-dispatched from Playwright, never a real key press. Before debugging deeply,
-**open the dev server and press `W` by hand.** It is entirely possible the
-input path is fine and only the synthetic-event harness stopped working —
-in which case there is no bug at all.
-
-### Suspects, in order
-
-1. `paused` in `src/world/WorldCanvas.tsx` stuck true. It is
-   `mapOpen || aboutOpen || openEntry !== undefined || showControls`. When
-   `paused`, `Scene` forces `throttle: false`. Check whether `showControls` or
-   `mapOpen` is failing to clear.
-2. `src/world/useLookAround.ts` was added late and attaches `pointerdown`,
-   `pointermove` and `pointerup` on `window`. Check it is not interfering with
-   focus or swallowing events.
-3. The garage speed cap. `Scene` passes
-   `{ ...DEFAULT_DRIVE_OPTIONS, maxSpeed: GARAGE_SPEED }` while `insideRef` is
-   true. If `GARAGE_SPEED` were ever 0 or the options object malformed, the car
-   would not move. It is 22 and looks right, but it is on the path.
-
-### Fastest way to diagnose
-
-Add a temporary `useFrame` line in `Scene.tsx` writing
-`{ throttle: input.current.throttle, paused, inside: insideRef.current, speed: stateRef.current.speed }`
-to `window`, then read it from the console. That was the next step when the
-session ended. **Remove it afterwards** — a previous diagnostic like this was
-left in and had to be cleaned up.
+Both the dev server and the Playwright Chrome survive a session ending. `next
+dev` refuses to start and names the PID to kill; Playwright errors with
+`Browser is already in use` and you have to `pkill -f mcp-chrome-<id>`.
 
 ---
 
 ## 3. Uncommitted work
 
-Three files, all part of an unfinished **sunset improvement**:
+None. The sunset work described below was verified and committed as
+`54e6a7b`.
 
-```
- M src/world/Environment.tsx
- M src/world/Sun.tsx
- M src/world/palette.ts
-```
+The sky and the key light had disagreed: the sky said dusk while the light sat
+37° above the horizon, which lights the world like mid-afternoon. `SUN_DIRECTION`
+and `SUN_ELEVATION` now live in `palette.ts` and both derive from them. The sky
+is directional — `SKY_SUNWARD` and `SKY_AWAY` blended per vertex by how much
+that part of the sky faces the sun — because a warm band painted evenly around
+the whole horizon has no sun in it and reads as haze.
 
-It type-checks, lints and all tests pass, but **it has not been visually
-verified** — the driving bug blocked getting a representative screenshot.
-
-What it does, and why:
-
-- `SUN_DIRECTION` and `SUN_ELEVATION` in `palette.ts`, shared between the sky
-  and the key light, because they disagreed. The sky said sunset while the
-  light sat 37° above the horizon, which lights the world like mid-afternoon.
-- The sun is now low (elevation 0.12) and warmer (`#ffb877`).
-- The sky is **directional**. It previously painted the same warm band right
-  around the horizon in every direction, so there was nowhere the sun actually
-  *was* and the whole thing read as haze. There are now two gradients —
-  `SKY_SUNWARD` and `SKY_AWAY` — blended per vertex by how much that part of
-  the sky faces the sun.
-- The warm band is much wider. It was about eight degrees of elevation, which
-  is why the sunset was barely visible.
-
-**Verify this visually before committing.** If it looks wrong, `git checkout`
-those three files loses only this change.
+Checked in the browser both ways. Sunward: orange through magenta into deep
+blue over the hills. Away: a warm rim on the horizon under a night sky, warm-lit
+buildings, long shadows across the road.
 
 ---
-
 ## 4. Bugs fixed this session, worth not re-introducing
 
 These cost real time and are invisible in the finished code.
