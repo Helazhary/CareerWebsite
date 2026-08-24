@@ -194,7 +194,8 @@ export function DriveHud({
         <kbd className="rounded border border-line px-1">←</kbd>{' '}
         <kbd className="rounded border border-line px-1">→</kbd> at a junction ·{' '}
         <kbd className="rounded border border-line px-1">S</kbd> to turn around ·{' '}
-        <kbd className="rounded border border-line px-1">M</kbd> for the map
+        <kbd className="rounded border border-line px-1">M</kbd> for the map · drag to look
+        around
       </p>
     </>
   );

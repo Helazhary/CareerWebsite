@@ -76,7 +76,12 @@ export default function WorldCanvas({
         // and warns once per frame, which would bury any real error.
         shadows={{ type: PCFShadowMap }}
         dpr={[1, 2]}
-        camera={{ fov: 52, near: 0.5, far: 2400 }}
+        // Far must clear the whole backdrop. At 2400 it sat *inside* the sky
+        // dome (radius 2600) and in front of the pyramids, so both were clipped
+        // away — the sky left a hole showing the canvas clear colour, which read
+        // as a black mountain that nothing raycast against and no material
+        // recolour touched, because nothing was being drawn there at all.
+        camera={{ fov: 52, near: 0.5, far: 9000 }}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
       >
         <Scene input={input} onHud={setHud} stateRef={stateRef} paused={paused} />

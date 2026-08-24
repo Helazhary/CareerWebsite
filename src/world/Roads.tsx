@@ -102,6 +102,22 @@ function buildDashes(edge: GraphEdge, halfWidth: number, y: number): THREE.Buffe
   return geometry;
 }
 
+/**
+ * A patch of tarmac laid over a junction.
+ *
+ * Where roads meet, their ribbons overlap and their markings run straight
+ * through each other — kerbs cross the carriageway and two centre lines meet at
+ * an angle. Real junctions have none of that: the markings simply stop. The
+ * apron sits above the markings and covers them, which is both what a junction
+ * looks like and the cheapest way to hide the seam.
+ */
+function buildApron(radius: number, y: number): THREE.BufferGeometry {
+  const geometry = new THREE.CircleGeometry(radius, 24);
+  geometry.rotateX(-Math.PI / 2);
+  geometry.translate(0, y, 0);
+  return geometry;
+}
+
 interface Ribbon {
   readonly key: string;
   readonly geometry: THREE.BufferGeometry;
@@ -122,12 +138,14 @@ function surfaceFor(edge: GraphEdge): {
   edgeLine: string;
 } {
   if (edge.kind === 'detour') {
+    // Snow settles beside a road, not on it — a ploughed road is still a road.
+    // Painting the carriageway white read as a mistake rather than as weather.
     return {
-      road: WORLD_COLORS.snowRoad,
+      road: WORLD_COLORS.road,
       kerb: WORLD_COLORS.snowKerb,
       verge: WORLD_COLORS.snowVerge,
       centre: WORLD_COLORS.centreLine,
-      edgeLine: WORLD_COLORS.snowKerb,
+      edgeLine: WORLD_COLORS.edgeLine,
     };
   }
   return {
@@ -199,15 +217,33 @@ export function Roads({ graph, halfWidth }: { graph: RoadGraph; halfWidth: numbe
     [graph, halfWidth],
   );
 
+  const aprons = useMemo(() => {
+    const geometry = buildApron(halfWidth + KERB_WIDTH * 0.8, MARKING_Y + 0.02);
+    const nodes = graph.nodes.filter((node) => node.kind === 'junction');
+    return { geometry, nodes };
+  }, [graph, halfWidth]);
+
+  useEffect(() => () => aprons.geometry.dispose(), [aprons]);
+
   return (
     <group>
+      {aprons.nodes.map((node) => (
+        <mesh
+          key={`apron-${node.id}`}
+          geometry={aprons.geometry}
+          position={[node.position.x, 0, node.position.z]}
+          receiveShadow
+        >
+          <meshStandardMaterial color={WORLD_COLORS.road} map={asphalt} roughness={0.95} />
+        </mesh>
+      ))}
       {ribbons.map(({ key, geometry, color }) => (
         <mesh key={key} geometry={geometry} receiveShadow>
           <meshStandardMaterial
             color={color}
             // Only the carriageway is textured; markings and kerbs stay flat so
             // the grain does not fight the paint.
-            map={key.endsWith('-surface') && !key.startsWith('detour-') ? asphalt : null}
+            map={key.endsWith('-surface') ? asphalt : null}
             roughness={0.95}
             metalness={0}
           />

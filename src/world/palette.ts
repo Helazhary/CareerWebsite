@@ -17,6 +17,9 @@ export const WORLD_COLORS = {
   ground: '#232b26',
   /** Distant hills. Sits between the fog and the sky so it reads as far away. */
   horizon: '#1a2030',
+  /** Lit by the last of the sun, a shade above the hills behind them. */
+  /** A shade lighter than the hills, so they read as nearer and catch the sun. */
+  pyramid: '#2b2735',
   road: '#39424f',
   kerb: '#6b7690',
   centreLine: '#b9c2d4',

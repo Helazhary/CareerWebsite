@@ -19,6 +19,7 @@ import { Car } from './Car';
 import { ChaseCamera } from './ChaseCamera';
 import { Sun } from './Sun';
 import { nearestPlot } from './proximity';
+import { useLookAround } from './useLookAround';
 
 /** What the DOM overlay needs. Updated on change, never per frame. */
 export interface HudState {
@@ -93,6 +94,7 @@ export function Scene({
   const carRef = useRef<Group>(null);
   const lastHud = useRef<string>('');
   const bodyYaw = useRef<number | null>(null);
+  const lookRef = useLookAround();
 
   const spawnX = worldGraph.nodeById.get(worldGraph.spawnNodeId)?.position.x ?? 0;
   const doorX = spawnX + GARAGE_DOOR_OFFSET;
@@ -224,7 +226,12 @@ export function Scene({
       ))}
 
       <Car ref={carRef} />
-      <ChaseCamera graph={worldGraph} stateRef={stateRef} interiorRef={insideRef} />
+      <ChaseCamera
+        graph={worldGraph}
+        stateRef={stateRef}
+        interiorRef={insideRef}
+        lookRef={lookRef}
+      />
     </>
   );
 }

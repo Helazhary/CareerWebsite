@@ -22,6 +22,7 @@ const CONTROLS: readonly Control[] = [
   { keys: ['S', '↓'], label: 'Turn the car around' },
   { keys: ['⏎'], label: 'Open the building you have stopped at' },
   { keys: ['M'], label: 'Open the map — click anything to travel there' },
+  { keys: ['drag'], label: 'Look around; let go and the view settles back' },
   { keys: ['Esc'], label: 'Close whatever is open' },
 ];
 

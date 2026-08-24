@@ -5,6 +5,7 @@ import { useRef } from 'react';
 import * as THREE from 'three';
 import type { RoadGraph } from './graph';
 import { type DriveState, headingOf, positionOf } from './drive';
+import type { LookOffset } from './useLookAround';
 
 /**
  * Elevated three-quarter chase camera. Fixed pitch, fixed distance, damped
@@ -36,11 +37,14 @@ export function ChaseCamera({
   graph,
   stateRef,
   interiorRef,
+  lookRef,
 }: {
   graph: RoadGraph;
   stateRef: React.RefObject<DriveState>;
   /** Frame for an enclosed space rather than open road. Read every frame. */
   interiorRef: React.RefObject<boolean>;
+  /** Drag-to-look offset, springing back to the designed framing on release. */
+  lookRef: React.RefObject<LookOffset>;
 }): null {
   const { camera } = useThree();
   const desired = useRef(new THREE.Vector3());
@@ -52,20 +56,37 @@ export function ChaseCamera({
     const position = positionOf(graph, state);
     const heading = headingOf(graph, state);
 
+    const look = lookRef.current;
+    // Let go and the camera returns to the framing the scene was laid out for.
+    if (!look.held) {
+      const decay = Math.exp(-2.6 * delta);
+      look.yaw *= decay;
+      look.pitch *= decay;
+    }
+
     const interior = interiorRef.current;
     const distance = interior ? INTERIOR_DISTANCE : DISTANCE;
     const height = interior ? INTERIOR_HEIGHT : HEIGHT;
     const lookAhead = interior ? INTERIOR_LOOK_AHEAD : LOOK_AHEAD;
 
+    // The camera keeps its place and turns its head. Orbiting it around the
+    // car instead swings it straight through the garage walls, and in any
+    // enclosed space it always will — a room is smaller than the chase radius.
     desired.current.set(
       position.x - heading.x * distance,
       height,
       position.z - heading.z * distance,
     );
+
+    const cos = Math.cos(look.yaw);
+    const sin = Math.sin(look.yaw);
+    const forwardX = heading.x * cos - heading.z * sin;
+    const forwardZ = heading.x * sin + heading.z * cos;
+
     focus.current.set(
-      position.x + heading.x * lookAhead,
-      interior ? 1.8 : 3.5,
-      position.z + heading.z * lookAhead,
+      desired.current.x + forwardX * (distance + lookAhead),
+      height - (interior ? 3.6 : 6) + look.pitch * (distance + lookAhead),
+      desired.current.z + forwardZ * (distance + lookAhead),
     );
 
     // Snap on the first frame so the opening shot is framed, not swooping in

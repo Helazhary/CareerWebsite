@@ -139,6 +139,71 @@ export function makeRoadTexture(size = 256, seed = 19): THREE.CanvasTexture | nu
 }
 
 /**
+ * Sand, and a mask that fades it in with distance.
+ *
+ * The world is grass where the roads are and desert beyond, because that is
+ * where this career happened. Blending by distance rather than drawing a line
+ * means there is no visible edge where one becomes the other.
+ */
+export function makeDesertTexture(size = 512, seed = 31): THREE.CanvasTexture | null {
+  const surface = canvas(size);
+  if (surface === null) return null;
+  const { ctx, el } = surface;
+  const random = mulberry32(seed);
+
+  ctx.fillStyle = '#8a7350';
+  ctx.fillRect(0, 0, size, size);
+
+  for (let i = 0; i < 70; i += 1) {
+    ctx.fillStyle = random() > 0.5 ? '#957d58' : '#7d6746';
+    ctx.globalAlpha = 0.3 + random() * 0.4;
+    ctx.beginPath();
+    ctx.ellipse(random() * size, random() * size, 30 + random() * 110, 12 + random() * 46, random() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Wind ripples. Fine, directional, and what stops sand reading as felt.
+  ctx.globalAlpha = 0.22;
+  for (let i = 0; i < 900; i += 1) {
+    const y = random() * size;
+    ctx.strokeStyle = random() > 0.5 ? '#a08965' : '#6f5c3f';
+    ctx.lineWidth = 0.7 + random() * 1.1;
+    ctx.beginPath();
+    ctx.moveTo(random() * size, y);
+    ctx.lineTo(random() * size, y + (random() - 0.5) * 6);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  const texture = new THREE.CanvasTexture(el);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  return texture;
+}
+
+/** Transparent over the green heart of the map, opaque out in the sand. */
+export function makeDesertMask(size = 256, clearFraction = 0.3, edgeFraction = 0.46): THREE.CanvasTexture | null {
+  const surface = canvas(size);
+  if (surface === null) return null;
+  const { ctx, el } = surface;
+  const half = size / 2;
+
+  const gradient = ctx.createRadialGradient(half, half, size * clearFraction, half, half, size * edgeFraction);
+  gradient.addColorStop(0, 'rgba(0,0,0,0)');
+  gradient.addColorStop(0.55, 'rgba(255,255,255,0.72)');
+  gradient.addColorStop(1, 'rgba(255,255,255,1)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+
+  const texture = new THREE.CanvasTexture(el);
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  return texture;
+}
+
+/**
  * A dusk sky, top to horizon.
  *
  * A flat background colour is the single biggest tell that a scene is a render
@@ -147,7 +212,9 @@ export function makeRoadTexture(size = 256, seed = 19): THREE.CanvasTexture | nu
  */
 export function makeSkyTexture(height = 512): THREE.CanvasTexture | null {
   const el = document.createElement('canvas');
-  el.width = 8;
+  // Wide enough that the horizontal mip chain is not the dominant term. An
+  // 8px-wide strip mipmaps down to a single averaged pixel almost immediately.
+  el.width = 64;
   el.height = height;
   const ctx = el.getContext('2d');
   if (ctx === null) return null;
@@ -168,9 +235,24 @@ export function makeSkyTexture(height = 512): THREE.CanvasTexture | null {
   gradient.addColorStop(0.6, '#2a2620');
   gradient.addColorStop(1, '#14161a');
   ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 8, height);
+  ctx.fillRect(0, 0, el.width, height);
 
   const texture = new THREE.CanvasTexture(el);
   texture.colorSpace = THREE.SRGBColorSpace;
+  /**
+   * No mipmaps.
+   *
+   * A tall, narrow gradient stretched over a sphere has large u-derivatives, so
+   * the GPU selects a coarse mip level over much of the dome — and the coarse
+   * levels of a gradient are its average colour, a muddy dark. It renders as a
+   * hard-edged dark mass following the sphere's triangles, which looks exactly
+   * like a mountain nobody modelled and raycasts against nothing, because there
+   * is nothing there.
+   */
+  texture.generateMipmaps = false;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
   return texture;
 }
