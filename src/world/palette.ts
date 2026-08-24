@@ -6,6 +6,19 @@
 
 import type { District } from '@content/schema';
 
+/**
+ * Where the sun is, as a compass direction on the ground plane.
+ *
+ * Shared, because the sky and the key light have to agree. They did not: the
+ * sky said sunset while the light sat 37° up, which is mid-afternoon. And the
+ * sky's warm band was painted right around the horizon in every direction at
+ * once, so there was nowhere the sun actually *was* — a sunset with no sun in
+ * it reads as haze.
+ */
+export const SUN_DIRECTION = { x: -0.864, z: 0.504 } as const;
+/** Low. This is the whole point of a dusk palette. */
+export const SUN_ELEVATION = 0.12;
+
 export const WORLD_COLORS = {
   sky: '#131a26',
   /**

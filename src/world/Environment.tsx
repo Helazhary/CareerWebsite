@@ -5,6 +5,7 @@ import { useFrame } from '@react-three/fiber';
 import type { Group } from 'three';
 import * as THREE from 'three';
 import { makeDesertMask, makeDesertTexture, makeGroundTexture } from './textures';
+import { SUN_DIRECTION } from './palette';
 import { WORLD_COLORS } from './palette';
 
 /**
@@ -31,30 +32,55 @@ const HORIZON_RADIUS = 1750;
  * geometry. Vertex colours interpolate smoothly, have no mip chain, no wrap
  * mode and no seam.
  */
-const SKY_STOPS: readonly (readonly [number, string])[] = [
-  [0.0, '#14161a'],
-  [0.42, '#2a2620'],
-  [0.48, '#7c5238'],
-  [0.5, '#d99257'],
-  [0.505, '#c07a4a'],
-  [0.525, '#7a5a56'],
-  [0.56, '#3a3b52'],
-  [0.64, '#1b2740'],
-  [0.78, '#0e1626'],
+/**
+ * Two gradients: the sky facing the sun, and the sky with its back to it.
+ *
+ * A single gradient painted the same warm band right around the horizon, so
+ * there was nowhere the sun actually was and the whole thing read as haze
+ * rather than as a sunset. The warm band was also far too narrow — about eight
+ * degrees of elevation — so even facing it there was almost nothing to see.
+ */
+const SKY_SUNWARD: readonly (readonly [number, string])[] = [
+  [0.0, '#241a14'],
+  [0.42, '#4a2f1f'],
+  [0.47, '#8a4a24'],
+  [0.5, '#ff9d44'],
+  [0.53, '#f08040'],
+  [0.58, '#c25f42'],
+  [0.65, '#7c4a55'],
+  [0.74, '#3f3a5c'],
+  [0.86, '#1b2340'],
+  [1.0, '#080d18'],
+];
+
+const SKY_AWAY: readonly (readonly [number, string])[] = [
+  [0.0, '#12151a'],
+  [0.42, '#1d2029'],
+  [0.48, '#33384a'],
+  [0.5, '#4a4a63'],
+  [0.56, '#3b3f5c'],
+  [0.66, '#252d4c'],
+  [0.8, '#141c33'],
   [1.0, '#070b14'],
 ];
 
-function skyColourAt(t: number, out: THREE.Color): THREE.Color {
-  for (let i = 1; i < SKY_STOPS.length; i += 1) {
-    const [t1, c1] = SKY_STOPS[i] ?? SKY_STOPS[SKY_STOPS.length - 1]!;
-    const [t0, c0] = SKY_STOPS[i - 1]!;
-    if (t <= t1) {
-      const span = t1 - t0;
-      const k = span === 0 ? 0 : (t - t0) / span;
-      return out.set(c0).lerp(new THREE.Color(c1), k);
+function sampleStops(
+  stops: readonly (readonly [number, string])[],
+  t: number,
+  out: THREE.Color,
+): THREE.Color {
+  for (let i = 1; i < stops.length; i += 1) {
+    const next = stops[i] ?? stops[stops.length - 1];
+    const previous = stops[i - 1];
+    if (next === undefined || previous === undefined) break;
+    if (t <= next[0]) {
+      const span = next[0] - previous[0];
+      const k = span === 0 ? 0 : (t - previous[0]) / span;
+      return out.set(previous[1]).lerp(new THREE.Color(next[1]), k);
     }
   }
-  return out.set(SKY_STOPS[SKY_STOPS.length - 1]![1]);
+  const last = stops[stops.length - 1];
+  return out.set(last === undefined ? '#000000' : last[1]);
 }
 
 function Sky(): React.JSX.Element {
@@ -64,10 +90,25 @@ function Sky(): React.JSX.Element {
     const colors = new Float32Array(position.count * 3);
     const swatch = new THREE.Color();
 
+    const away = new THREE.Color();
+    const sunLength = Math.hypot(SUN_DIRECTION.x, SUN_DIRECTION.z) || 1;
+
     for (let i = 0; i < position.count; i += 1) {
       // 0 straight down, 0.5 at the horizon, 1 at the zenith.
       const t = (position.getY(i) / SKY_RADIUS + 1) / 2;
-      skyColourAt(t, swatch);
+
+      // How much this part of the sky faces the sun. Squared so the glow
+      // concentrates into one quarter of the sky rather than smearing evenly.
+      const hx = position.getX(i);
+      const hz = position.getZ(i);
+      const hLength = Math.hypot(hx, hz) || 1;
+      const facing =
+        ((hx / hLength) * SUN_DIRECTION.x + (hz / hLength) * SUN_DIRECTION.z) / sunLength;
+      const glow = Math.max(0, facing) ** 1.6;
+
+      sampleStops(SKY_SUNWARD, t, swatch);
+      sampleStops(SKY_AWAY, t, away);
+      swatch.lerp(away, 1 - glow);
       colors[i * 3] = swatch.r;
       colors[i * 3 + 1] = swatch.g;
       colors[i * 3 + 2] = swatch.b;

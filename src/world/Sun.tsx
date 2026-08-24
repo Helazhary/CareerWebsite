@@ -3,6 +3,7 @@
 import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
 import type { DirectionalLight, Group } from 'three';
+import { SUN_DIRECTION, SUN_ELEVATION } from './palette';
 
 /**
  * The key light, riding along with the car.
@@ -14,8 +15,19 @@ import type { DirectionalLight, Group } from 'three';
  * be, and the rest of the map costs nothing to light.
  */
 
-/** Low and to one side: a dusk sun, long shadows across the road. */
-const OFFSET: readonly [number, number, number] = [-120, 105, 70];
+/**
+ * Low and to one side: a dusk sun, long shadows across the road.
+ *
+ * Derived from the shared sun direction so the light comes from wherever the
+ * sky's glow is. Previously this sat 37° above the horizon, which lights the
+ * world like mid-afternoon underneath a sunset sky.
+ */
+const REACH = 340;
+const OFFSET: readonly [number, number, number] = [
+  SUN_DIRECTION.x * REACH,
+  REACH * SUN_ELEVATION,
+  SUN_DIRECTION.z * REACH,
+];
 const SHADOW_EXTENT = 150;
 const SHADOW_MAP_SIZE = 2048;
 
@@ -57,8 +69,8 @@ export function Sun({ follow }: { follow: React.RefObject<Group | null> }): Reac
     <group>
       <directionalLight
         ref={light}
-        color="#ffd9a8"
-        intensity={2.4}
+        color="#ffb877"
+        intensity={2.9}
         castShadow
         shadow-mapSize-width={SHADOW_MAP_SIZE}
         shadow-mapSize-height={SHADOW_MAP_SIZE}
