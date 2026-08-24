@@ -1,8 +1,13 @@
 'use client';
 
+import { entries } from '@content/registry';
 import type { PlotTransform } from './layout';
 import { DISTRICT_TINT } from './palette';
+import { Sign } from './Sign';
 import { renderSkin } from './skins/registry';
+
+/** Titles by id. Built once — the renderer reads content, it does not embed it. */
+const TITLES = new Map(entries.map((entry) => [entry.id, entry.title]));
 
 /**
  * One building. The same primitive for every entry — a job, a degree and a side
@@ -12,7 +17,8 @@ import { renderSkin } from './skins/registry';
  * `district`, `size` and `status`, and by nothing else.
  */
 export function Plot({ transform }: { transform: PlotTransform }): React.JSX.Element {
-  const { position, rotationY, footprint, district, skin, status } = transform;
+  const { entryId, position, rotationY, footprint, district, skin, status } = transform;
+  const title = TITLES.get(entryId) ?? entryId;
 
   return (
     <group position={[position.x, 0, position.z]} rotation={[0, rotationY, 0]}>
@@ -26,6 +32,7 @@ export function Plot({ transform }: { transform: PlotTransform }): React.JSX.Ele
       ) : (
         renderSkin(skin, { footprint, tint: DISTRICT_TINT[district] })
       )}
+      <Sign text={title} footprint={footprint} />
     </group>
   );
 }
