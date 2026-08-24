@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { site } from '@/lib/site';
 import { entries, projects } from '@content/registry';
 import { EntryCard } from '@/doc/EntryCard';
+import { WorldMount } from '@/world/WorldMount';
 
 export default function HomePage() {
   const featured = entries.filter((e) => e.featured);
@@ -27,6 +28,7 @@ export default function HomePage() {
           >
             All projects
           </Link>
+          <WorldMount />
         </div>
       </section>
 
