@@ -1,5 +1,6 @@
-# Cloudflare Pages applies these to every response.
-# Docs: https://developers.cloudflare.com/pages/configuration/headers/
+# Cloudflare applies these to every response. Copied into out/ by the static
+# export, then picked up by Workers Static Assets.
+# Docs: https://developers.cloudflare.com/workers/static-assets/headers/
 
 /*
   X-Content-Type-Options: nosniff
