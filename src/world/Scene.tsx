@@ -14,6 +14,7 @@ import { Plot } from './Plot';
 import { Car } from './Car';
 import { ChaseCamera } from './ChaseCamera';
 import { Sun } from './Sun';
+import { nearestPlot } from './proximity';
 
 /** What the DOM overlay needs. Updated on change, never per frame. */
 export interface HudState {
@@ -23,6 +24,8 @@ export interface HudState {
   readonly speed: number;
   /** World units still to run before the junction. Gates the prompt. */
   readonly distanceToJunction: number;
+  /** The building the car is at, if any. */
+  readonly nearbyEntryId: string | null;
 }
 
 /**
@@ -41,10 +44,13 @@ export function Scene({
   input,
   onHud,
   stateRef,
+  paused,
 }: {
   input: React.RefObject<InputBuffer>;
   onHud: (hud: HudState) => void;
   stateRef: React.RefObject<DriveState>;
+  /** True while a panel or the map is open. The car coasts to a stop. */
+  paused: boolean;
 }): React.JSX.Element {
   const carRef = useRef<Group>(null);
   const lastHud = useRef<string>('');
@@ -62,11 +68,17 @@ export function Scene({
         district: option.district,
       }));
 
+      const nearby = nearestPlot(
+        positionOf(worldGraph, state),
+        headingOf(worldGraph, state),
+        worldPlots,
+      );
+
       // Bucketed so the overlay re-renders on meaningful change, not at 60 Hz.
       const approaching = remaining < PROMPT_DISTANCE;
       const signature = `${state.targetNodeId}|${state.choice}|${branches
         .map((b) => b.edgeId)
-        .join(',')}|${approaching}|${Math.round(state.speed / 10)}`;
+        .join(',')}|${approaching}|${nearby?.entryId ?? ''}|${Math.round(state.speed / 10)}`;
       if (signature === lastHud.current) return;
       lastHud.current = signature;
 
@@ -76,6 +88,7 @@ export function Scene({
         branches,
         speed: state.speed,
         distanceToJunction: approaching ? remaining : Number.POSITIVE_INFINITY,
+        nearbyEntryId: nearby?.entryId ?? null,
       });
     },
     [onHud],
@@ -85,7 +98,12 @@ export function Scene({
     const next = step(
       worldGraph,
       stateRef.current,
-      { throttle: input.current.throttle, steer: consumeSteer(input.current) },
+      {
+        // A panel is a stop, not a pause: the car coasts down rather than
+        // freezing mid-frame, and picks up again when the panel closes.
+        throttle: paused ? false : input.current.throttle,
+        steer: paused ? 0 : consumeSteer(input.current),
+      },
       Math.min(delta, MAX_FRAME_SECONDS),
     );
     stateRef.current = next;

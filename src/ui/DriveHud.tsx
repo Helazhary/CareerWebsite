@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { entries } from '@content/registry';
 import type { HudState } from '@/world/Scene';
 import { DISTRICT_LABELS, site } from '@/lib/site';
 import { type InputBuffer, queueSteer, setThrottle } from '@/world/useDriveInput';
@@ -10,20 +11,30 @@ import { type InputBuffer, queueSteer, setThrottle } from '@/world/useDriveInput
  * the two escape hatches are on screen in the first frame — before a single
  * byte of the 3D bundle has parsed (DESIGN.md §1, the anti-annoyance contract).
  */
+/** Titles by id, built once. The HUD reads content; it does not embed it. */
+const TITLES = new Map(entries.map((entry) => [entry.id, entry.title]));
+
 export function DriveHud({
   hud,
   input,
   onExit,
   onOpenMap,
+  onOpenEntry,
+  panelOpen,
 }: {
   hud: HudState | null;
   input: React.RefObject<InputBuffer>;
   onExit: () => void;
   onOpenMap: () => void;
+  onOpenEntry: (entryId: string) => void;
+  panelOpen: boolean;
 }): React.JSX.Element {
   const branches = hud?.branches ?? [];
   // A choice, and close enough for it to be about the junction in front of you.
   const atJunction = branches.length > 1 && Number.isFinite(hud?.distanceToJunction ?? Infinity);
+
+  const nearbyId = hud?.nearbyEntryId ?? null;
+  const nearby = nearbyId === null ? undefined : TITLES.get(nearbyId);
 
   const press = (steer: -1 | 1) => () => queueSteer(input.current, steer);
   const hold = (throttle: boolean) => () => setThrottle(input.current, throttle);
@@ -65,6 +76,23 @@ export function DriveHud({
           </Link>
         </nav>
       </header>
+
+      {/* What you are standing at. An offer, not an interruption — the panel
+          never opens itself as you drive past. */}
+      {nearby !== undefined && nearbyId !== null && !panelOpen ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-40 z-10 flex justify-center px-4 sm:bottom-44">
+          <button
+            type="button"
+            onClick={() => onOpenEntry(nearbyId)}
+            className="pointer-events-auto flex items-center gap-2 rounded-full border border-line bg-surface/90 px-4 py-2 text-xs backdrop-blur transition hover:border-accent sm:text-sm"
+          >
+            <kbd className="rounded border border-line px-1.5 py-0.5 font-mono text-[11px]">
+              ⏎
+            </kbd>
+            <span className="font-medium text-text">{nearby}</span>
+          </button>
+        </div>
+      ) : null}
 
       {/* Junction prompt: ◀ The Lab │ Highway ▶ */}
       {atJunction ? (
