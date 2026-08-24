@@ -9,6 +9,25 @@ describe('preview placeholders', () => {
     expect(PREVIEW_MODE).toBe(false);
   });
 
+  it('cannot be switched on in a production build at all', () => {
+    // Belt and braces. The env var by itself is one Cloudflare setting away
+    // from shipping placeholders; a production bundle must not be able to
+    // express preview mode however it is configured.
+    const previous = process.env.NODE_ENV;
+    const flag = process.env.NEXT_PUBLIC_PREVIEW;
+    try {
+      Object.defineProperty(process.env, 'NODE_ENV', { value: 'production', configurable: true });
+      process.env.NEXT_PUBLIC_PREVIEW = '1';
+      const enabled =
+        process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_PREVIEW === '1';
+      expect(enabled).toBe(false);
+    } finally {
+      Object.defineProperty(process.env, 'NODE_ENV', { value: previous, configurable: true });
+      if (flag === undefined) delete process.env.NEXT_PUBLIC_PREVIEW;
+      else process.env.NEXT_PUBLIC_PREVIEW = flag;
+    }
+  });
+
   it('shows nothing for an entry with no media when preview is off', () => {
     const bare = entries.filter((entry) => entry.media.length === 0);
     expect(bare.length, 'expected some entries to still lack photographs').toBeGreaterThan(0);

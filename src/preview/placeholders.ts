@@ -13,7 +13,17 @@
 
 import type { Entry } from '@content/schema';
 
-export const PREVIEW_MODE = process.env.NEXT_PUBLIC_PREVIEW === '1';
+/**
+ * Two locks, not one.
+ *
+ * The env var alone is a configuration away from shipping grey cards to
+ * helazhary.com — set NEXT_PUBLIC_PREVIEW in the Cloudflare build and every
+ * empty gallery fills with placeholders. Requiring a development build as well
+ * makes that impossible regardless of how the deploy is configured: preview is
+ * a thing you run locally, and a production bundle cannot express it.
+ */
+export const PREVIEW_MODE =
+  process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_PREVIEW === '1';
 
 /** How many placeholder frames to show for an entry with no media at all. */
 const FRAMES_BY_SIZE: Record<Entry['size'], number> = { sm: 1, md: 2, lg: 3 };
