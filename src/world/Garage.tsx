@@ -26,8 +26,13 @@ const WIDTH = 30;
  * inside of it. The room is offset backwards for the same reason: the car
  * starts near the door with the workshop behind it.
  */
-const DEPTH = 42;
-const BACKSET = 7;
+export const GARAGE_DEPTH = 42;
+export const GARAGE_BACKSET = 7;
+const DEPTH = GARAGE_DEPTH;
+const BACKSET = GARAGE_BACKSET;
+
+/** Where the doorway sits, relative to the spawn point. */
+export const GARAGE_DOOR_OFFSET = DEPTH / 2 - BACKSET;
 const HEIGHT = 11;
 const WALL = 0.8;
 const DOOR_HEIGHT = 7.4;
@@ -106,11 +111,15 @@ function PhotoWall({ urls }: { urls: readonly string[] }): React.JSX.Element | n
 
 export function Garage({
   graph,
-  open,
+  openRef,
 }: {
   graph: RoadGraph;
-  /** Drives the shutter. The room stays; only the door moves. */
-  open: boolean;
+  /**
+   * Whether the shutter is up. A ref rather than a prop because it changes as
+   * the car moves, and re-rendering the whole room every frame to animate one
+   * panel would be absurd.
+   */
+  openRef: React.RefObject<boolean>;
 }): React.JSX.Element | null {
   const spawn = graph.nodeById.get(graph.spawnNodeId);
   const shutter = useRef<Mesh>(null);
@@ -123,7 +132,7 @@ export function Garage({
     // Rolls up out of sight, and stops there.
     const closedY = DOOR_HEIGHT / 2;
     const openY = DOOR_HEIGHT / 2 + DOOR_HEIGHT + 0.6;
-    const target = open ? openY : closedY;
+    const target = openRef.current ? openY : closedY;
     const step = ((openY - closedY) / DOOR_SECONDS) * delta;
     door.position.y += Math.sign(target - door.position.y) * Math.min(step, Math.abs(target - door.position.y));
   });

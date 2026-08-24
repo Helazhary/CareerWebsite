@@ -4,13 +4,13 @@ import { useFrame } from '@react-three/fiber';
 import { useCallback, useRef } from 'react';
 import type { Group } from 'three';
 import { DEFAULT_LAYOUT_OPTIONS } from './layout';
-import { type DriveState, branchOptions, headingOf, positionOf, step } from './drive';
+import { DEFAULT_DRIVE_OPTIONS, type DriveState, branchOptions, headingOf, positionOf, step } from './drive';
 import { type InputBuffer, consumeFlip, consumeSteer } from './useDriveInput';
 import { worldGraph, worldLamps, worldPlots, worldScenery } from './world';
 import { WORLD_COLORS } from './palette';
 import { Billboards } from './Billboards';
 import { Environment } from './Environment';
-import { Garage } from './Garage';
+import { GARAGE_DOOR_OFFSET, Garage } from './Garage';
 import { RoadEnd } from './RoadEnd';
 import { Roads } from './Roads';
 import { Scenery } from './Scenery';
@@ -53,6 +53,22 @@ const MAX_FRAME_SECONDS = 0.05;
  * manoeuvre. The body now swings round over about half a second while the
  * position stays wherever the model says it is.
  */
+/**
+ * The garage.
+ *
+ * There is no drive-out sequence: you are simply in the room, in control, and
+ * you leave when you drive through the door. An automatic exit meant watching
+ * a cutscene you could not look around during, and it dumped the car onto the
+ * highway at full speed halfway across the map.
+ */
+// Must be shorter than the car's standing distance from the door, or the
+// shutter is already up before anyone has touched a key.
+const DOOR_OPENS_WITHIN = 9;
+/** Crossing this clears the room for good; the shutter stays up behind you. */
+const DOOR_CLEARED_BY = 6;
+/** A garage is not somewhere you accelerate. */
+const GARAGE_SPEED = 22;
+
 const YAW_DAMPING = 7.5;
 /** Below this the swing is over; snap and stop paying for the interpolation. */
 const YAW_SETTLED = 0.004;
@@ -67,22 +83,30 @@ export function Scene({
   onHud,
   stateRef,
   paused,
-  leaving,
-  inGarage,
 }: {
   input: React.RefObject<InputBuffer>;
   onHud: (hud: HudState) => void;
   stateRef: React.RefObject<DriveState>;
   /** True while a panel or the map is open. The car coasts to a stop. */
   paused: boolean;
-  /** Opening sequence: the shutter is up and the car pulls out on its own. */
-  leaving: boolean;
-  /** True until the viewer has taken the wheel. */
-  inGarage: boolean;
 }): React.JSX.Element {
   const carRef = useRef<Group>(null);
   const lastHud = useRef<string>('');
   const bodyYaw = useRef<number | null>(null);
+
+  const spawnX = worldGraph.nodeById.get(worldGraph.spawnNodeId)?.position.x ?? 0;
+  const doorX = spawnX + GARAGE_DOOR_OFFSET;
+
+  // Latched: once out, the room never reclaims the camera, even if the viewer
+  // turns around and drives back in through the open door.
+  //
+  // Assumed indoors and corrected on the first frame rather than read from the
+  // drive state here — a ref must not be read during render. Scene's frame
+  // callback registers before the camera's, so the camera never sees the wrong
+  // framing, even when a deep link starts the car on the far side of the map.
+  const leftGarage = useRef(false);
+  const insideRef = useRef(true);
+  const doorOpenRef = useRef(false);
 
   const publish = useCallback(
     (state: DriveState): void => {
@@ -124,20 +148,28 @@ export function Scene({
   );
 
   useFrame((_, delta) => {
+    const inside = insideRef.current;
     const next = step(
       worldGraph,
       stateRef.current,
       {
         // A panel is a stop, not a pause: the car coasts down rather than
         // freezing mid-frame, and picks up again when the panel closes.
-        // During the opening the car drives itself out of the garage.
-        throttle: paused ? false : leaving || input.current.throttle,
+        throttle: paused ? false : input.current.throttle,
         steer: paused ? 0 : consumeSteer(input.current),
         flip: paused ? false : consumeFlip(input.current),
       },
       Math.min(delta, MAX_FRAME_SECONDS),
+      // Held to a crawl indoors, so leaving is a manoeuvre rather than a
+      // launch. Without this you arrive on the highway at full speed.
+      inside ? { ...DEFAULT_DRIVE_OPTIONS, maxSpeed: GARAGE_SPEED } : DEFAULT_DRIVE_OPTIONS,
     );
     stateRef.current = next;
+
+    const carX = positionOf(worldGraph, next).x;
+    if (!leftGarage.current && carX > doorX + DOOR_CLEARED_BY) leftGarage.current = true;
+    insideRef.current = !leftGarage.current;
+    doorOpenRef.current = leftGarage.current || carX > doorX - DOOR_OPENS_WITHIN;
 
     const car = carRef.current;
     if (car !== null) {
@@ -181,7 +213,7 @@ export function Scene({
 
       <Environment />
 
-      <Garage graph={worldGraph} open={!inGarage} />
+      <Garage graph={worldGraph} openRef={doorOpenRef} />
       <Roads graph={worldGraph} halfWidth={DEFAULT_LAYOUT_OPTIONS.roadHalfWidth} />
       <Scenery items={worldScenery} lamps={worldLamps} />
       <Billboards graph={worldGraph} />
@@ -192,7 +224,7 @@ export function Scene({
       ))}
 
       <Car ref={carRef} />
-      <ChaseCamera graph={worldGraph} stateRef={stateRef} interior={inGarage} />
+      <ChaseCamera graph={worldGraph} stateRef={stateRef} interiorRef={insideRef} />
     </>
   );
 }

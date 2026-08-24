@@ -35,12 +35,12 @@ const FOLLOW_DAMPING = 3.2;
 export function ChaseCamera({
   graph,
   stateRef,
-  interior,
+  interiorRef,
 }: {
   graph: RoadGraph;
   stateRef: React.RefObject<DriveState>;
-  /** Frame for an enclosed space rather than open road. */
-  interior: boolean;
+  /** Frame for an enclosed space rather than open road. Read every frame. */
+  interiorRef: React.RefObject<boolean>;
 }): null {
   const { camera } = useThree();
   const desired = useRef(new THREE.Vector3());
@@ -52,6 +52,7 @@ export function ChaseCamera({
     const position = positionOf(graph, state);
     const heading = headingOf(graph, state);
 
+    const interior = interiorRef.current;
     const distance = interior ? INTERIOR_DISTANCE : DISTANCE;
     const height = interior ? INTERIOR_HEIGHT : HEIGHT;
     const lookAhead = interior ? INTERIOR_LOOK_AHEAD : LOOK_AHEAD;

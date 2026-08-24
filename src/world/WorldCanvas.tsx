@@ -16,16 +16,6 @@ import { worldGraph } from './world';
 
 const ENTRY_BY_ID = new Map(entries.map((entry) => [entry.id, entry]));
 
-/**
- * The opening: shutter up, car pulls out on its own, then the viewer takes the
- * wheel. Long enough to clear the garage and see the road, short enough that
- * nobody sits through it twice.
- */
-const DRIVE_OUT_SECONDS = 3.4;
-
-/** 'garage' → 'leaving' → 'driving'. Deep links skip straight to driving. */
-type Phase = 'garage' | 'leaving' | 'driving';
-
 export default function WorldCanvas({
   onExit,
   initialEntryId,
@@ -47,19 +37,12 @@ export default function WorldCanvas({
   const [mapOpen, setMapOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [openEntryId, setOpenEntryId] = useState<string | null>(initialEntryId ?? null);
-  // Arriving by deep link means arriving at a building, not in the garage.
-  const [phase, setPhase] = useState<Phase>(initialEntryId === undefined ? 'garage' : 'driving');
+  // Arriving by deep link means arriving at a building, and the controls card
+  // would be in the way of the thing that was linked to.
   const [showControls, setShowControls] = useState(initialEntryId === undefined);
 
   const openEntry = openEntryId === null ? undefined : ENTRY_BY_ID.get(openEntryId);
   const paused = mapOpen || aboutOpen || openEntry !== undefined || showControls;
-
-  // Hand over control once the car is clear of the garage.
-  useEffect(() => {
-    if (phase !== 'leaving') return;
-    const timer = window.setTimeout(() => setPhase('driving'), DRIVE_OUT_SECONDS * 1000);
-    return () => window.clearTimeout(timer);
-  }, [phase]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -84,13 +67,6 @@ export default function WorldCanvas({
     if (anchor === undefined) return;
     stateRef.current = stateAtAnchor(worldGraph, anchor);
     setMapOpen(false);
-    // Travelling by map leaves the garage behind, however you got there.
-    setPhase('driving');
-  }, []);
-
-  const start = useCallback((): void => {
-    setShowControls(false);
-    setPhase((current) => (current === 'garage' ? 'leaving' : current));
   }, []);
 
   return (
@@ -103,14 +79,7 @@ export default function WorldCanvas({
         camera={{ fov: 52, near: 0.5, far: 2400 }}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
       >
-        <Scene
-          input={input}
-          onHud={setHud}
-          stateRef={stateRef}
-          paused={paused}
-          leaving={phase === 'leaving'}
-          inGarage={phase === 'garage'}
-        />
+        <Scene input={input} onHud={setHud} stateRef={stateRef} paused={paused} />
       </Canvas>
 
       <DriveHud
@@ -139,10 +108,7 @@ export default function WorldCanvas({
       {aboutOpen ? <AboutPanel onClose={() => setAboutOpen(false)} /> : null}
 
       {showControls ? (
-        <IntroOverlay
-          onStart={start}
-          startLabel={phase === 'garage' ? 'Drive out of the garage' : 'Back to it'}
-        />
+        <IntroOverlay onStart={() => setShowControls(false)} startLabel="Take the wheel" />
       ) : null}
     </div>
   );
