@@ -6,6 +6,8 @@ export interface InputBuffer {
   throttle: boolean;
   /** Consumed once per frame — steering is a decision, not a held state. */
   steer: -1 | 0 | 1;
+  /** Consumed once per frame — turn the car around. */
+  flip: boolean;
 }
 
 /**
@@ -16,6 +18,16 @@ export function consumeSteer(buffer: InputBuffer): -1 | 0 | 1 {
   const pending = buffer.steer;
   buffer.steer = 0;
   return pending;
+}
+
+export function consumeFlip(buffer: InputBuffer): boolean {
+  const pending = buffer.flip;
+  buffer.flip = false;
+  return pending;
+}
+
+export function queueFlip(buffer: InputBuffer): void {
+  buffer.flip = true;
 }
 
 export function setThrottle(buffer: InputBuffer, throttle: boolean): void {
@@ -29,6 +41,7 @@ export function queueSteer(buffer: InputBuffer, steer: -1 | 1): void {
 const THROTTLE_KEYS = new Set(['ArrowUp', 'KeyW', 'Space']);
 const LEFT_KEYS = new Set(['ArrowLeft', 'KeyA']);
 const RIGHT_KEYS = new Set(['ArrowRight', 'KeyD']);
+const FLIP_KEYS = new Set(['ArrowDown', 'KeyS']);
 
 /**
  * Keyboard and touch input, held outside React state.
@@ -37,7 +50,7 @@ const RIGHT_KEYS = new Set(['ArrowRight', 'KeyD']);
  * The frame loop reads this ref directly and re-renders nothing.
  */
 export function useDriveInput(): React.RefObject<InputBuffer> {
-  const buffer = useRef<InputBuffer>({ throttle: false, steer: 0 });
+  const buffer = useRef<InputBuffer>({ throttle: false, steer: 0, flip: false });
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -49,6 +62,7 @@ export function useDriveInput(): React.RefObject<InputBuffer> {
       }
       if (LEFT_KEYS.has(event.code)) buffer.current.steer = -1;
       if (RIGHT_KEYS.has(event.code)) buffer.current.steer = 1;
+      if (FLIP_KEYS.has(event.code)) buffer.current.flip = true;
     };
 
     const onKeyUp = (event: KeyboardEvent): void => {
@@ -59,6 +73,7 @@ export function useDriveInput(): React.RefObject<InputBuffer> {
     const onBlur = (): void => {
       buffer.current.throttle = false;
       buffer.current.steer = 0;
+      buffer.current.flip = false;
     };
 
     window.addEventListener('keydown', onKeyDown);

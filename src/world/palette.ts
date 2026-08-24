@@ -8,9 +8,15 @@ import type { District } from '@content/schema';
 
 export const WORLD_COLORS = {
   sky: '#131a26',
-  /** Warmer than the sky, so distance reads as haze rather than as a wall. */
-  fog: '#2a2c3a',
+  /**
+   * Matched to the sky just above the horizon. Fog that does not match what is
+   * behind it turns the far ground into a visible dark band — the exact "wall
+   * at the edge of the world" it is supposed to hide.
+   */
+  fog: '#4c4550',
   ground: '#232b26',
+  /** Distant hills. Sits between the fog and the sky so it reads as far away. */
+  horizon: '#1a2030',
   road: '#39424f',
   kerb: '#6b7690',
   centreLine: '#b9c2d4',

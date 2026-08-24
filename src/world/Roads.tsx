@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { type GraphEdge, type RoadGraph, normalAt, sampleEdge } from './graph';
 import { WORLD_COLORS } from './palette';
+import { makeRoadTexture } from './textures';
 
 const SAMPLES = 56;
 /** Lifted off the ground so the road does not z-fight with it. */
@@ -108,6 +109,13 @@ interface Ribbon {
 }
 
 export function Roads({ graph, halfWidth }: { graph: RoadGraph; halfWidth: number }): React.JSX.Element {
+  const asphalt = useMemo(() => {
+    const map = makeRoadTexture();
+    if (map !== null) map.repeat.set(6, 220);
+    return map;
+  }, []);
+  useEffect(() => () => asphalt?.dispose(), [asphalt]);
+
   const ribbons = useMemo<Ribbon[]>(
     () =>
       graph.edges.flatMap((edge) => [
@@ -161,7 +169,14 @@ export function Roads({ graph, halfWidth }: { graph: RoadGraph; halfWidth: numbe
     <group>
       {ribbons.map(({ key, geometry, color }) => (
         <mesh key={key} geometry={geometry} receiveShadow>
-          <meshStandardMaterial color={color} roughness={0.95} metalness={0} />
+          <meshStandardMaterial
+            color={color}
+            // Only the carriageway is textured; markings and kerbs stay flat so
+            // the grain does not fight the paint.
+            map={key.endsWith('-surface') ? asphalt : null}
+            roughness={0.95}
+            metalness={0}
+          />
         </mesh>
       ))}
     </group>

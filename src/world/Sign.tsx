@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
-import * as THREE from 'three';
 import type { Footprint } from './layout';
-import { fitSign, type Measure } from './signText';
+import { createSignTexture } from './signTexture';
 
 /**
  * A building's sign, rendered to a canvas texture at runtime from the entry
@@ -16,51 +15,7 @@ import { fitSign, type Measure } from './signText';
 
 const CANVAS_WIDTH = 1024;
 const CANVAS_HEIGHT = 256;
-const FONT_STACK = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 
-function drawSign(text: string, panel: string, ink: string): THREE.CanvasTexture | null {
-  const canvas = document.createElement('canvas');
-  canvas.width = CANVAS_WIDTH;
-  canvas.height = CANVAS_HEIGHT;
-  const ctx = canvas.getContext('2d');
-  if (ctx === null) return null;
-
-  ctx.fillStyle = panel;
-  ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
-  const measure: Measure = (value, fontSize) => {
-    ctx.font = `600 ${fontSize}px ${FONT_STACK}`;
-    return ctx.measureText(value).width;
-  };
-
-  const { lines, fontSize } = fitSign(text, measure, {
-    maxWidth: CANVAS_WIDTH * 0.9,
-    maxHeight: CANVAS_HEIGHT * 0.78,
-  });
-
-  ctx.fillStyle = ink;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = `600 ${fontSize}px ${FONT_STACK}`;
-
-  const lineHeight = fontSize * 1.16;
-  const start = CANVAS_HEIGHT / 2 - ((lines.length - 1) * lineHeight) / 2;
-  lines.forEach((line, index) => {
-    ctx.fillText(line, CANVAS_WIDTH / 2, start + index * lineHeight);
-  });
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 4;
-  return texture;
-}
-
-/**
- * Where the sign hangs.
- *
- * `facade` mounts it on the building. `hoarding` stands it on posts at the
- * kerb, which is what a site with no finished facade to mount on actually has.
- */
 export type SignMount = 'facade' | 'hoarding';
 
 export function Sign({
@@ -76,7 +31,16 @@ export function Sign({
   panel?: string;
   ink?: string;
 }): React.JSX.Element | null {
-  const texture = useMemo(() => drawSign(text, panel, ink), [text, panel, ink]);
+  const texture = useMemo(
+    () =>
+      createSignTexture(text, {
+        width: CANVAS_WIDTH,
+        height: CANVAS_HEIGHT,
+        panel,
+        ink,
+      }),
+    [text, panel, ink],
+  );
 
   // Canvas textures hold a bitmap on the GPU. Without this, driving past a few
   // hundred buildings would leak every one of them.

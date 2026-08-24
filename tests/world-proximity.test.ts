@@ -54,7 +54,7 @@ describe('nearestPlot', () => {
     let state = initialDriveState(graph);
     const seen = new Set<string>();
     for (let frame = 0; frame < 60 * 25; frame += 1) {
-      state = step(graph, state, { throttle: true, steer: 0 }, 1 / 60);
+      state = step(graph, state, { throttle: true, steer: 0, flip: false }, 1 / 60);
       const found = nearestPlot(positionOf(graph, state), headingOf(graph, state), plots);
       if (found !== undefined) seen.add(found.entryId);
     }

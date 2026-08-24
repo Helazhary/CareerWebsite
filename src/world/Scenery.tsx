@@ -15,6 +15,35 @@ import type { LampItem, PropKind, ScatterItem } from './scatter';
  */
 
 const dummy = new THREE.Object3D();
+const swatch = new THREE.Color();
+
+/**
+ * Tint each instance a little differently.
+ *
+ * Identical geometry is fine — a low-poly world is meant to repeat. Identical
+ * *colour* across four hundred trees is what makes it look machine-made, and it
+ * costs one extra attribute to fix.
+ */
+function tintInstances(
+  mesh: InstancedMesh | null,
+  items: readonly { shade: number }[],
+  base: string,
+  spread: number,
+): void {
+  if (mesh === null) return;
+  const colour = new THREE.Color(base);
+  const hsl = { h: 0, s: 0, l: 0 };
+  colour.getHSL(hsl);
+  items.forEach((item, index) => {
+    swatch.setHSL(
+      hsl.h + (item.shade - 0.5) * spread * 0.5,
+      hsl.s * (0.75 + item.shade * 0.5),
+      hsl.l * (0.85 + item.shade * 0.55),
+    );
+    mesh.setColorAt(index, swatch);
+  });
+  if (mesh.instanceColor !== null) mesh.instanceColor.needsUpdate = true;
+}
 
 function useInstances(
   items: readonly { position: { x: number; z: number }; rotationY: number; scale?: number }[],
@@ -45,9 +74,21 @@ function Trees({ items }: { items: readonly ScatterItem[] }): React.JSX.Element 
   const trunks = useInstances(items, (object) => {
     object.position.y = 2.1 * (object.scale.x || 1);
   });
-  const canopies = useInstances(items, (object) => {
+  const canopies = useInstances(items, (object, index) => {
     object.position.y = 6.4 * (object.scale.x || 1);
+    // Squash and stretch per tree: a canopy is never a perfect ball, and a
+    // field of perfect balls is unmistakably generated.
+    const item = items[index];
+    if (item !== undefined) {
+      object.scale.y *= 0.82 + item.shade * 0.5;
+      object.scale.x *= 0.9 + (1 - item.shade) * 0.28;
+    }
   });
+
+  useLayoutEffect(() => {
+    tintInstances(canopies.current, items, '#436b4c', 0.16);
+    tintInstances(trunks.current, items, '#54432f', 0.06);
+  }, [items, canopies, trunks]);
 
   if (items.length === 0) return null;
 
@@ -60,7 +101,7 @@ function Trees({ items }: { items: readonly ScatterItem[] }): React.JSX.Element 
       <instancedMesh ref={canopies} args={[undefined, undefined, items.length]} castShadow>
         {/* Faceted rather than smooth: the world is deliberately low-poly. */}
         <icosahedronGeometry args={[3.4, 0]} />
-        <meshStandardMaterial color="#31513f" roughness={0.95} flatShading />
+        <meshStandardMaterial color="#436b4c" roughness={0.95} flatShading />
       </instancedMesh>
     </group>
   );
@@ -71,11 +112,12 @@ function Shrubs({ items }: { items: readonly ScatterItem[] }): React.JSX.Element
     object.position.y = 0.9 * (object.scale.x || 1);
     object.scale.y *= 0.7;
   });
+  useLayoutEffect(() => tintInstances(mesh.current, items, '#4a6d51', 0.2), [items, mesh]);
   if (items.length === 0) return null;
   return (
     <instancedMesh ref={mesh} args={[undefined, undefined, items.length]} castShadow>
       <icosahedronGeometry args={[1.5, 0]} />
-      <meshStandardMaterial color="#3b5b43" roughness={1} flatShading />
+      <meshStandardMaterial color="#4a6d51" roughness={1} flatShading />
     </instancedMesh>
   );
 }
@@ -85,6 +127,7 @@ function Rocks({ items }: { items: readonly ScatterItem[] }): React.JSX.Element 
     object.position.y = 0.35 * (object.scale.x || 1);
     object.scale.y *= 0.55;
   });
+  useLayoutEffect(() => tintInstances(mesh.current, items, '#4b4f58', 0.08), [items, mesh]);
   if (items.length === 0) return null;
   return (
     <instancedMesh ref={mesh} args={[undefined, undefined, items.length]} castShadow>

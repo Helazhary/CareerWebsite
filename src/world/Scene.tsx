@@ -5,9 +5,11 @@ import { useCallback, useRef } from 'react';
 import type { Group } from 'three';
 import { DEFAULT_LAYOUT_OPTIONS } from './layout';
 import { type DriveState, branchOptions, headingOf, positionOf, step } from './drive';
-import { type InputBuffer, consumeSteer } from './useDriveInput';
+import { type InputBuffer, consumeFlip, consumeSteer } from './useDriveInput';
 import { worldGraph, worldLamps, worldPlots, worldScenery } from './world';
 import { WORLD_COLORS } from './palette';
+import { Billboards } from './Billboards';
+import { Environment } from './Environment';
 import { Roads } from './Roads';
 import { Scenery } from './Scenery';
 import { Plot } from './Plot';
@@ -103,6 +105,7 @@ export function Scene({
         // freezing mid-frame, and picks up again when the panel closes.
         throttle: paused ? false : input.current.throttle,
         steer: paused ? 0 : consumeSteer(input.current),
+        flip: paused ? false : consumeFlip(input.current),
       },
       Math.min(delta, MAX_FRAME_SECONDS),
     );
@@ -121,25 +124,22 @@ export function Scene({
 
   return (
     <>
-      <color attach="background" args={[WORLD_COLORS.sky]} />
       {/* Far enough out that the fog reads as distance, not as a wall. The
           road running into it is the closing shot (DESIGN.md §2.3). */}
-      <fog attach="fog" args={[WORLD_COLORS.fog, 260, 980]} />
+      <fog attach="fog" args={[WORLD_COLORS.fog, 320, 1450]} />
 
       {/* Dusk, per DESIGN.md §10: one neutral palette, restyled later.
           Kept dim enough that the lit windows, neon and signs actually read as
           light sources rather than as slightly paler paint. */}
-      <ambientLight intensity={0.22} />
-      <hemisphereLight args={['#7d93bd', '#191d26', 0.85] as const} />
+      <ambientLight intensity={0.4} />
+      <hemisphereLight args={['#8ea6cd', '#20281f', 1.05] as const} />
       <Sun follow={carRef} />
 
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[6000, 6000]} />
-        <meshStandardMaterial color={WORLD_COLORS.ground} roughness={1} />
-      </mesh>
+      <Environment />
 
       <Roads graph={worldGraph} halfWidth={DEFAULT_LAYOUT_OPTIONS.roadHalfWidth} />
       <Scenery items={worldScenery} lamps={worldLamps} />
+      <Billboards graph={worldGraph} />
 
       {worldPlots.map((transform) => (
         <Plot key={transform.entryId} transform={transform} />

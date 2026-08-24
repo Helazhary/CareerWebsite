@@ -22,6 +22,12 @@ export interface ScatterItem {
   readonly position: Vec2;
   readonly rotationY: number;
   readonly scale: number;
+  /**
+   * 0..1, used to vary each instance's colour. Every tree being the identical
+   * green is one of the loudest tells that a scene was generated rather than
+   * grown.
+   */
+  readonly shade: number;
 }
 
 export interface LampItem {
@@ -43,6 +49,12 @@ export interface ScatterOptions {
   readonly margin: number;
   /** Hard cap, so a bigger world cannot melt a laptop. */
   readonly maxItems: number;
+  /** Number of thickets. Planting clumps; it does not spread evenly. */
+  readonly clusters: number;
+  /** Radius of a thicket's influence. */
+  readonly clusterRadius: number;
+  /** Chance of something growing well away from any thicket. */
+  readonly strayDensity: number;
 }
 
 export const DEFAULT_SCATTER: ScatterOptions = {
@@ -50,9 +62,12 @@ export const DEFAULT_SCATTER: ScatterOptions = {
   roadClearance: 13,
   plotClearance: 5,
   gridStep: 17,
-  density: 0.55,
+  density: 0.92,
   margin: 190,
   maxItems: 1400,
+  clusters: 26,
+  clusterRadius: 130,
+  strayDensity: 0.12,
 };
 
 /** Small, fast, seedable. Identical output everywhere. */
@@ -169,17 +184,38 @@ export function scatterScenery(
   const roads = new PointGrid(config.roadClearance);
   for (const point of roadPoints(graph, config.roadClearance * 0.6)) roads.add(point);
 
+  // Thickets. Scattering uniformly across a grid produces an orchard, which is
+  // exactly the wrong texture: real planting clumps, thins out, and leaves
+  // clearings.
+  const thickets: Vec2[] = Array.from({ length: config.clusters }, () => ({
+    x: minX + random() * (maxX - minX),
+    z: minZ + random() * (maxZ - minZ),
+  }));
+
+  const thicketStrength = (point: Vec2): number => {
+    let strongest = 0;
+    for (const thicket of thickets) {
+      const distance = Math.hypot(thicket.x - point.x, thicket.z - point.z);
+      const falloff = Math.exp(-(distance * distance) / (2 * config.clusterRadius * config.clusterRadius));
+      if (falloff > strongest) strongest = falloff;
+    }
+    return strongest;
+  };
+
   const items: ScatterItem[] = [];
 
   for (let x = minX; x <= maxX && items.length < config.maxItems; x += config.gridStep) {
     for (let z = minZ; z <= maxZ && items.length < config.maxItems; z += config.gridStep) {
-      if (random() > config.density) continue;
-
-      // Jitter off the grid, or the world looks like an orchard.
+      // Jitter off the grid first, so clustering is measured where the thing
+      // would actually stand.
       const candidate: Vec2 = {
-        x: x + (random() - 0.5) * config.gridStep * 0.9,
-        z: z + (random() - 0.5) * config.gridStep * 0.9,
+        x: x + (random() - 0.5) * config.gridStep * 1.4,
+        z: z + (random() - 0.5) * config.gridStep * 1.4,
       };
+
+      const chance =
+        config.density * (config.strayDensity + (1 - config.strayDensity) * thicketStrength(candidate));
+      if (random() > chance) continue;
 
       if (roads.hasWithin(candidate, config.roadClearance)) continue;
 
@@ -198,6 +234,7 @@ export function scatterScenery(
         position: candidate,
         rotationY: random() * Math.PI * 2,
         scale: 0.7 + random() * 0.75,
+        shade: random(),
       });
     }
   }

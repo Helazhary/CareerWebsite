@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { entries } from '@content/registry';
 import type { HudState } from '@/world/Scene';
 import { DISTRICT_LABELS, site } from '@/lib/site';
-import { type InputBuffer, queueSteer, setThrottle } from '@/world/useDriveInput';
+import { type InputBuffer, queueFlip, queueSteer, setThrottle } from '@/world/useDriveInput';
 
 /**
  * The DOM overlay. Plain HTML on top of the canvas, so the name, the title and
@@ -131,6 +131,14 @@ export function DriveHud({
         </button>
         <button
           type="button"
+          aria-label="Turn the car around"
+          onPointerDown={() => queueFlip(input.current)}
+          className="flex-1 rounded-lg border border-line bg-surface/70 text-sm text-text backdrop-blur active:bg-surface"
+        >
+          ↻
+        </button>
+        <button
+          type="button"
           aria-label="Drive forward"
           onPointerDown={hold(true)}
           onPointerUp={hold(false)}
@@ -154,7 +162,8 @@ export function DriveHud({
       <p className="pointer-events-none absolute inset-x-0 bottom-4 z-10 hidden text-center text-xs text-muted sm:block">
         Hold <kbd className="rounded border border-line px-1">W</kbd> to drive ·{' '}
         <kbd className="rounded border border-line px-1">←</kbd>{' '}
-        <kbd className="rounded border border-line px-1">→</kbd> to choose at a junction ·{' '}
+        <kbd className="rounded border border-line px-1">→</kbd> at a junction ·{' '}
+        <kbd className="rounded border border-line px-1">S</kbd> to turn around ·{' '}
         <kbd className="rounded border border-line px-1">M</kbd> for the map
       </p>
     </>
