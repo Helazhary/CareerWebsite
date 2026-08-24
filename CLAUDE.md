@@ -49,6 +49,12 @@ Contributor guide: `HOWTO.md`.
 - Images live in `public/media/<entry id>/` and are referenced by filename only.
 - Alt text is required by the schema. Write a real description, not the title.
 
+## Start here
+
+`docs/HANDOFF.md` carries the live state: what is deployed, what is only
+local, the open bug, and what is waiting on Hussein. Read it before picking
+anything up.
+
 ## Current state
 
 **M0–M3 built.** M4 (the real car `.glb`) and M5 (a showpiece) remain.
