@@ -4,7 +4,7 @@
 > world where every building is a job, a degree, or a project.
 > One click escapes to a plain resume for anyone in a hurry.
 
-Status: **M0–M2.5 built and deployed. M3 in progress.**
+Status: **M0–M3 built. M4 (the real car model) and M5 (a showpiece) remain.**
 Owner: Hussein Elazhary
 Domain: helazhary.com (Cloudflare)
 
@@ -90,7 +90,9 @@ Narrative beats worth preserving:
 - The world **starts in the garage**, with the real car. You drive out of your own
   garage into your career.
 - The **Montreal detour** is a short bridge off the highway with snow — the
-  Concordia exchange semester, told visually instead of as a bullet.
+  Concordia exchange semester, told visually instead of as a bullet. Driven by a
+  `detour` flag on the entry, not by its id, so any future secondment or
+  exchange gets the same treatment for free.
 - **Darwinz appears twice** (2022 and 2025). Same building, second visit, sign
   reads "welcome back." It communicates a rehire without claiming anything.
 - **Qortova is the largest structure**, and the road continues past it into fog.

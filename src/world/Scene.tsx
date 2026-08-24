@@ -10,6 +10,7 @@ import { worldGraph, worldLamps, worldPlots, worldScenery } from './world';
 import { WORLD_COLORS } from './palette';
 import { Billboards } from './Billboards';
 import { Environment } from './Environment';
+import { RoadEnd } from './RoadEnd';
 import { Roads } from './Roads';
 import { Scenery } from './Scenery';
 import { Plot } from './Plot';
@@ -140,6 +141,7 @@ export function Scene({
       <Roads graph={worldGraph} halfWidth={DEFAULT_LAYOUT_OPTIONS.roadHalfWidth} />
       <Scenery items={worldScenery} lamps={worldLamps} />
       <Billboards graph={worldGraph} />
+      <RoadEnd graph={worldGraph} />
 
       {worldPlots.map((transform) => (
         <Plot key={transform.entryId} transform={transform} />

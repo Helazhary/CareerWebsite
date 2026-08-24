@@ -45,6 +45,14 @@ export const entrySchema = z.object({
   bullets: z.array(z.string().min(1)).min(1).max(8),
   media: z.array(mediaSchema).default([]),
   links: linksSchema.default({}),
+  /**
+   * Put this entry on a short bridge off the highway rather than on the spine.
+   *
+   * For time spent somewhere other than the main thread of a career — an
+   * exchange semester, a secondment — where the detour says something a bullet
+   * point cannot. Only meaningful for `highway` entries.
+   */
+  detour: z.boolean().default(false),
   /** Ids of ambient props to place around the plot, e.g. 'walking-robot'. */
   ambient: z.array(z.string()).default([]),
   /** Id of a registered interactive demo component. Reserved for M5. */

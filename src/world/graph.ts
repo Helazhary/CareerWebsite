@@ -29,10 +29,14 @@ export interface GraphNode {
   readonly edgeIds: readonly string[];
 }
 
+/** What a stretch of road *is*, structurally. Presentation keys off this. */
+export type EdgeKind = 'spine' | 'spur' | 'detour';
+
 export interface GraphEdge {
   readonly id: string;
   readonly fromId: string;
   readonly toId: string;
+  readonly kind: EdgeKind;
   /**
    * Which district this stretch of road belongs to. `highway` is the spine;
    * anything else is an off-ramp. The HUD resolves this to a display label —
@@ -88,6 +92,10 @@ export interface GraphOptions {
   readonly garageDepth: number;
   /** How far the road continues past the last building, into fog. */
   readonly fogRunout: number;
+  /** Half the length of a detour's opening along the spine. */
+  readonly detourSpan: number;
+  /** How far a detour bows away from the spine. */
+  readonly detourDepth: number;
 }
 
 export const DEFAULT_GRAPH_OPTIONS: GraphOptions = {
@@ -96,7 +104,11 @@ export const DEFAULT_GRAPH_OPTIONS: GraphOptions = {
   sameSideDistrictGap: 260,
   spurLength: 170,
   garageDepth: 90,
-  fogRunout: 140,
+  // Long enough to read as a place you went, short enough that the road home
+  // is always in view.
+  fogRunout: 300,
+  detourSpan: 62,
+  detourDepth: 92,
 };
 
 /**
@@ -283,10 +295,20 @@ function makeEdge(
   fromId: string,
   toId: string,
   district: District,
+  kind: EdgeKind,
   points: readonly Vec2[],
 ): GraphEdge {
   const arcTable = buildArcTable(points);
-  return { id, fromId, toId, district, points, arcTable, length: arcTable[arcTable.length - 1] ?? 0 };
+  return {
+    id,
+    fromId,
+    toId,
+    district,
+    kind,
+    points,
+    arcTable,
+    length: arcTable[arcTable.length - 1] ?? 0,
+  };
 }
 
 /** Earliest month an entry touches. Sorting the spine is sorting by this. */
@@ -315,7 +337,7 @@ export function buildRoadGraph(
       position: { x: config.fogRunout, z: 0 },
       edgeIds: ['spine-0'],
     };
-    const edge = makeEdge('spine-0', spawn.id, fog.id, 'highway', [spawn.position, fog.position]);
+    const edge = makeEdge('spine-0', spawn.id, fog.id, 'highway', 'spine', [spawn.position, fog.position]);
     return assemble([spawn, fog], [edge], spawn.id, []);
   }
 
@@ -326,12 +348,28 @@ export function buildRoadGraph(
   // the junction where each off-ramp leaves.
   type Feature =
     | { readonly kind: 'entry'; readonly id: string; readonly raw: number }
-    | { readonly kind: 'junction'; readonly id: string; readonly district: District; readonly raw: number };
+    | { readonly kind: 'junction'; readonly id: string; readonly district: District; readonly raw: number }
+    | { readonly kind: 'detour'; readonly id: string; readonly entryId: string; readonly end: 'in' | 'out'; readonly raw: number };
 
   // Only the highway rides the timeline. The garage is the stub at spawn — it
   // opens the world regardless of when the car in it was built.
-  const spineEntries = entries.filter((e) => e.district === 'highway');
+  const spineEntries = entries.filter((e) => e.district === 'highway' && !e.detour);
+  const detourEntries = entries.filter((e) => e.district === 'highway' && e.detour);
+
   const features: Feature[] = spineEntries.map((e) => ({ kind: 'entry', id: e.id, raw: rawX(e) }));
+
+  // A detour opens and closes on the spine at its own date, so it still reads
+  // chronologically when driven straight past.
+  for (const entry of detourEntries) {
+    features.push({
+      kind: 'detour', id: `detour-in-${entry.id}`, entryId: entry.id, end: 'in',
+      raw: rawX(entry) - config.detourSpan,
+    });
+    features.push({
+      kind: 'detour', id: `detour-out-${entry.id}`, entryId: entry.id, end: 'out',
+      raw: rawX(entry) + config.detourSpan,
+    });
+  }
 
   for (const district of SPUR_DISTRICTS) {
     const members = entries.filter((e) => e.district === district);
@@ -371,8 +409,12 @@ export function buildRoadGraph(
     { id: 'spawn', kind: 'spawn', position: spawnPosition },
   ];
   for (const { feature, x } of positioned) {
-    if (feature.kind !== 'junction') continue;
-    spineNodes.push({ id: feature.id, kind: 'junction', position: { x, z: 0 }, district: feature.district });
+    if (feature.kind === 'junction') {
+      spineNodes.push({ id: feature.id, kind: 'junction', position: { x, z: 0 }, district: feature.district });
+    }
+    if (feature.kind === 'detour') {
+      spineNodes.push({ id: feature.id, kind: 'junction', position: { x, z: 0 } });
+    }
   }
   spineNodes.push({
     id: 'terminus-fog',
@@ -393,7 +435,7 @@ export function buildRoadGraph(
     const to = spineNodes[i + 1];
     if (from === undefined || to === undefined) continue;
     const id = `spine-${i}`;
-    edges.push(makeEdge(id, from.id, to.id, 'highway', [from.position, to.position]));
+    edges.push(makeEdge(id, from.id, to.id, 'highway', 'spine', [from.position, to.position]));
     link(from.id, id);
     link(to.id, id);
   }
@@ -416,10 +458,33 @@ export function buildRoadGraph(
 
     const terminusId = `terminus-${node.district}`;
     const edgeId = `spur-${node.district}`;
-    edges.push(makeEdge(edgeId, node.id, terminusId, node.district, points));
+    edges.push(makeEdge(edgeId, node.id, terminusId, node.district, 'spur', points));
     link(node.id, edgeId);
     link(terminusId, edgeId);
     spurTermini.push({ id: terminusId, kind: 'terminus', position: end, edgeIds: [edgeId] });
+  }
+
+  // --- Detours: a bridge leaving the spine and rejoining it further on. ---
+  for (const entry of detourEntries) {
+    const openId = `detour-in-${entry.id}`;
+    const closeId = `detour-out-${entry.id}`;
+    const open = spineNodes.find((node) => node.id === openId);
+    const close = spineNodes.find((node) => node.id === closeId);
+    if (open === undefined || close === undefined) continue;
+
+    const depth = config.detourDepth;
+    const points: readonly Vec2[] = [
+      open.position,
+      { x: open.position.x + (close.position.x - open.position.x) * 0.28, z: depth * 0.75 },
+      { x: open.position.x + (close.position.x - open.position.x) * 0.5, z: depth },
+      { x: open.position.x + (close.position.x - open.position.x) * 0.72, z: depth * 0.75 },
+      close.position,
+    ];
+
+    const edgeId = `detour-${entry.id}`;
+    edges.push(makeEdge(edgeId, openId, closeId, entry.district, 'detour', points));
+    link(openId, edgeId);
+    link(closeId, edgeId);
   }
 
   const nodes: GraphNode[] = [
@@ -453,7 +518,7 @@ function placeAnchors(
   const xById = new Map(positioned.map(({ feature, x }) => [feature.id, x]));
 
   const spineEntries = entries
-    .filter((e) => e.district === 'highway')
+    .filter((e) => e.district === 'highway' && !e.detour)
     .sort((a, b) => (xById.get(a.id) ?? 0) - (xById.get(b.id) ?? 0));
 
   spineEntries.forEach((entry, index) => {
@@ -475,6 +540,15 @@ function placeAnchors(
       side: index % 2 === 0 ? 1 : -1,
     });
   });
+
+  // Detour entries sit at the far side of their own bridge — the point of the
+  // detour is that you have to leave the main road to reach them.
+  for (const entry of entries) {
+    if (!entry.detour) continue;
+    const bridge = edges.find((edge) => edge.id === `detour-${entry.id}`);
+    if (bridge === undefined) continue;
+    anchors.push({ entryId: entry.id, edgeId: bridge.id, u: 0.5, side: 1 });
+  }
 
   // The garage sits at spawn, on the opening stretch of road, so the world
   // starts with the car in its own garage rather than dropped onto a motorway.

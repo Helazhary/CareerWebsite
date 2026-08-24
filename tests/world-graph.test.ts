@@ -254,3 +254,79 @@ describe('buildRoadGraph edge cases', () => {
     expect(a.anchors).toEqual(b.anchors);
   });
 });
+
+describe('the Montreal detour', () => {
+  const graph = buildRoadGraph(entries);
+  const detoured = entries.filter((entry) => entry.detour);
+
+  it('has content that asks for a detour', () => {
+    expect(detoured.length).toBeGreaterThan(0);
+  });
+
+  it('leaves the spine and rejoins it, rather than dead-ending', () => {
+    for (const entry of detoured) {
+      const bridge = graph.edgeById.get(`detour-${entry.id}`);
+      expect(bridge, `no bridge for "${entry.id}"`).toBeDefined();
+      if (bridge === undefined) continue;
+      expect(bridge.kind).toBe('detour');
+      expect(bridge.fromId).not.toBe(bridge.toId);
+      // Both ends are junctions on the spine, so the detour is a loop.
+      expect(graph.nodeById.get(bridge.fromId)?.kind).toBe('junction');
+      expect(graph.nodeById.get(bridge.toId)?.kind).toBe('junction');
+    }
+  });
+
+  it('bows away from the spine so it is visibly a detour', () => {
+    for (const entry of detoured) {
+      const bridge = graph.edgeById.get(`detour-${entry.id}`);
+      if (bridge === undefined) continue;
+      const middle = sampleEdge(bridge, 0.5);
+      expect(Math.abs(middle.z)).toBeGreaterThan(40);
+    }
+  });
+
+  it('puts the entry on the bridge, not on the spine', () => {
+    for (const entry of detoured) {
+      const anchor = graph.anchorByEntryId.get(entry.id);
+      expect(anchor?.edgeId).toBe(`detour-${entry.id}`);
+    }
+  });
+
+  it('can still be driven straight past without taking it', () => {
+    // The spine has to remain continuous through the detour's junctions, or
+    // "hold forward and read the resume" stops working.
+    const spine = graph.edges.filter((edge) => edge.kind === 'spine');
+    const reached = new Set<string>([graph.spawnNodeId]);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const edge of spine) {
+        if (reached.has(edge.fromId) && !reached.has(edge.toId)) {
+          reached.add(edge.toId);
+          grew = true;
+        }
+      }
+    }
+    expect(reached.has('terminus-fog')).toBe(true);
+  });
+
+  it('marks every edge with what it structurally is', () => {
+    const kinds = new Set(graph.edges.map((edge) => edge.kind));
+    expect([...kinds].sort()).toEqual(['detour', 'spine', 'spur']);
+  });
+});
+
+describe('the fog ending', () => {
+  const graph = buildRoadGraph(entries);
+
+  it('runs the road well past the last building', () => {
+    const plotXs = graph.anchors.map((anchor) => {
+      const edge = graph.edgeById.get(anchor.edgeId);
+      return edge === undefined ? 0 : sampleEdge(edge, anchor.u).x;
+    });
+    const fog = graph.nodeById.get('terminus-fog');
+    // Far enough that the road visibly continues rather than simply stopping
+    // just after the final plot.
+    expect((fog?.position.x ?? 0) - Math.max(...plotXs)).toBeGreaterThan(200);
+  });
+});

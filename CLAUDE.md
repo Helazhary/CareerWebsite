@@ -51,7 +51,7 @@ Contributor guide: `HOWTO.md`.
 
 ## Current state
 
-**M0–M2.5 built and deployed.** M3 is in progress.
+**M0–M3 built.** M4 (the real car `.glb`) and M5 (a showpiece) remain.
 
 - **M0** — content pipeline, doc mode, CI, hosting.
 - **M1** — the world: road graph, plot layout, spline driving, junctions,
@@ -61,8 +61,8 @@ Contributor guide: `HOWTO.md`.
 - **M2.5** — the environment. Added mid-build: the spec detailed plots and roads
   and nothing between them, so the world read as grey cubes on an empty plane.
   Scenery scatter, road markings, verges, street lamps, building massing.
-- **M3** — panels, deep links, mode transitions, the Montreal detour, the fog
-  ending. In progress.
+- **M3** — project panels, `/p/<id>` deep links, the Montreal detour (a `detour`
+  schema flag, not a special case), and the road running on into fog.
 
 See `docs/DESIGN.md` §9 for the full plan.
 

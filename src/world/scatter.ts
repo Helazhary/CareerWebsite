@@ -272,15 +272,29 @@ export function scatterLamps(
       const u = (i + 0.5) / count;
       const centre = sampleEdge(edge, u);
       // Alternate sides so the road is lit evenly without doubling the count.
-      const side = i % 2 === 0 ? 1 : -1;
-      const outward = normalAt(edge, u, side);
-      const position: Vec2 = {
-        x: centre.x + outward.x * offset,
-        z: centre.z + outward.z * offset,
-      };
-      if (roads.hasWithin(position, clearance)) continue;
+      const preferred: -1 | 1 = i % 2 === 0 ? 1 : -1;
 
-      lamps.push({ position, rotationY: Math.atan2(-outward.x, -outward.z) });
+      // Near a junction the preferred verge can be another road. Try the far
+      // side and a wider offset before giving up, or short stretches next to
+      // junctions end up unlit — which is where the road is hardest to read.
+      let placed: LampItem | undefined;
+      const sides: readonly (-1 | 1)[] = preferred === 1 ? [1, -1] : [-1, 1];
+      for (const side of sides) {
+        for (const reach of [offset, offset * 1.6, offset * 2.3]) {
+          const outward = normalAt(edge, u, side);
+          const position: Vec2 = {
+            x: centre.x + outward.x * reach,
+            z: centre.z + outward.z * reach,
+          };
+          if (roads.hasWithin(position, clearance)) continue;
+          placed = { position, rotationY: Math.atan2(-outward.x, -outward.z) };
+          break;
+        }
+        if (placed !== undefined) break;
+      }
+
+      if (placed === undefined) continue;
+      lamps.push(placed);
     }
   }
 

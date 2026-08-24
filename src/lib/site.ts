@@ -12,6 +12,12 @@ export const site = {
   linkedin: 'https://linkedin.com/in/husseinelazhary/',
   /** Drop the PDF at public/Hussein_Elazhary_Resume.pdf to enable this. */
   resumePdf: '/Hussein_Elazhary_Resume.pdf',
+  /**
+   * What the road says where it runs out. Deliberately not "get in touch":
+   * the career is not finished, and a closing CTA would say it was
+   * (DESIGN.md §2.3).
+   */
+  closingSign: 'still driving',
 } as const;
 
 export const DISTRICT_LABELS: Record<string, string> = {

@@ -23,6 +23,10 @@ export const WORLD_COLORS = {
   edgeLine: '#7d879b',
   /** Mown grass along the roadside, between kerb and open ground. */
   verge: '#2b3a2e',
+  /** A detour is somewhere else. Snow says that without a caption. */
+  snowRoad: '#5c6473',
+  snowVerge: '#c9d2de',
+  snowKerb: '#e6ecf4',
   /**
    * Sampled from Hussein's own photos of the car (DESIGN.md §2.6), taking the
    * median of paint-coloured pixels across three shots in different light:
