@@ -10,10 +10,13 @@ export const WORLD_COLORS = {
   sky: '#131a26',
   /** Warmer than the sky, so distance reads as haze rather than as a wall. */
   fog: '#2a2c3a',
-  ground: '#1e2530',
+  ground: '#232b26',
   road: '#39424f',
   kerb: '#6b7690',
-  centreLine: '#98a2b8',
+  centreLine: '#b9c2d4',
+  edgeLine: '#7d879b',
+  /** Mown grass along the roadside, between kerb and open ground. */
+  verge: '#2b3a2e',
   /**
    * Sampled from Hussein's own photos of the car (DESIGN.md §2.6), taking the
    * median of paint-coloured pixels across three shots in different light:

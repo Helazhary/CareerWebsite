@@ -10,7 +10,12 @@ const SAMPLES = 56;
 const SURFACE_Y = 0.06;
 const MARKING_Y = 0.09;
 const KERB_WIDTH = 1.1;
-const CENTRE_LINE_WIDTH = 0.45;
+const CENTRE_LINE_WIDTH = 0.55;
+const EDGE_LINE_WIDTH = 0.34;
+const VERGE_WIDTH = 7;
+/** Dash and gap along the centre line, in world units. */
+const DASH = 9;
+const GAP = 7;
 
 /**
  * A flat ribbon following the spline between two lateral offsets.
@@ -51,6 +56,51 @@ function buildRibbon(edge: GraphEdge, from: number, to: number, y: number): THRE
   return geometry;
 }
 
+/**
+ * The centre line, broken into dashes.
+ *
+ * A solid painted line reads as a barrier and kills any sense of speed. Dashes
+ * streaming past the car are most of what makes driving feel like driving, and
+ * they cost one extra geometry per road.
+ */
+function buildDashes(edge: GraphEdge, halfWidth: number, y: number): THREE.BufferGeometry {
+  const positions: number[] = [];
+  const indices: number[] = [];
+  const period = DASH + GAP;
+  const count = Math.max(1, Math.floor(edge.length / period));
+
+  for (let d = 0; d < count; d += 1) {
+    const startU = (d * period) / edge.length;
+    const endU = Math.min((d * period + DASH) / edge.length, 1);
+    const steps = 4;
+
+    const base = positions.length / 3;
+    for (let i = 0; i <= steps; i += 1) {
+      const u = startU + ((endU - startU) * i) / steps;
+      const centre = sampleEdge(edge, u);
+      const outward = normalAt(edge, u, 1);
+      // Negative side first, matching buildRibbon. Reversing the pair flips the
+      // winding, which points the normals at the ground and makes the dashes
+      // invisible from above while still rendering perfectly.
+      positions.push(
+        centre.x - outward.x * halfWidth, y, centre.z - outward.z * halfWidth,
+        centre.x + outward.x * halfWidth, y, centre.z + outward.z * halfWidth,
+      );
+      if (i < steps) {
+        const left = base + i * 2;
+        const right = left + 1;
+        indices.push(left, right, left + 2, right, right + 2, left + 2);
+      }
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 interface Ribbon {
   readonly key: string;
   readonly geometry: THREE.BufferGeometry;
@@ -61,6 +111,18 @@ export function Roads({ graph, halfWidth }: { graph: RoadGraph; halfWidth: numbe
   const ribbons = useMemo<Ribbon[]>(
     () =>
       graph.edges.flatMap((edge) => [
+        // Verges first: they sit under everything and give the road an edge to
+        // meet, instead of tarmac stopping dead against open ground.
+        {
+          key: `${edge.id}-verge-left`,
+          geometry: buildRibbon(edge, halfWidth + KERB_WIDTH, halfWidth + KERB_WIDTH + VERGE_WIDTH, SURFACE_Y - 0.02),
+          color: WORLD_COLORS.verge,
+        },
+        {
+          key: `${edge.id}-verge-right`,
+          geometry: buildRibbon(edge, -halfWidth - KERB_WIDTH - VERGE_WIDTH, -halfWidth - KERB_WIDTH, SURFACE_Y - 0.02),
+          color: WORLD_COLORS.verge,
+        },
         {
           key: `${edge.id}-surface`,
           geometry: buildRibbon(edge, -halfWidth, halfWidth, SURFACE_Y),
@@ -77,8 +139,18 @@ export function Roads({ graph, halfWidth }: { graph: RoadGraph; halfWidth: numbe
           color: WORLD_COLORS.kerb,
         },
         {
+          key: `${edge.id}-edge-left`,
+          geometry: buildRibbon(edge, halfWidth - 1.5 - EDGE_LINE_WIDTH, halfWidth - 1.5, MARKING_Y),
+          color: WORLD_COLORS.edgeLine,
+        },
+        {
+          key: `${edge.id}-edge-right`,
+          geometry: buildRibbon(edge, -halfWidth + 1.5, -halfWidth + 1.5 + EDGE_LINE_WIDTH, MARKING_Y),
+          color: WORLD_COLORS.edgeLine,
+        },
+        {
           key: `${edge.id}-centre`,
-          geometry: buildRibbon(edge, -CENTRE_LINE_WIDTH, CENTRE_LINE_WIDTH, MARKING_Y),
+          geometry: buildDashes(edge, CENTRE_LINE_WIDTH, MARKING_Y),
           color: WORLD_COLORS.centreLine,
         },
       ]),

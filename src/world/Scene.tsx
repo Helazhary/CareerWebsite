@@ -6,9 +6,10 @@ import type { Group } from 'three';
 import { DEFAULT_LAYOUT_OPTIONS } from './layout';
 import { type DriveState, branchOptions, headingOf, positionOf, step } from './drive';
 import { type InputBuffer, consumeSteer } from './useDriveInput';
-import { worldGraph, worldPlots } from './world';
+import { worldGraph, worldLamps, worldPlots, worldScenery } from './world';
 import { WORLD_COLORS } from './palette';
 import { Roads } from './Roads';
+import { Scenery } from './Scenery';
 import { Plot } from './Plot';
 import { Car } from './Car';
 import { ChaseCamera } from './ChaseCamera';
@@ -120,6 +121,7 @@ export function Scene({
       </mesh>
 
       <Roads graph={worldGraph} halfWidth={DEFAULT_LAYOUT_OPTIONS.roadHalfWidth} />
+      <Scenery items={worldScenery} lamps={worldLamps} />
 
       {worldPlots.map((transform) => (
         <Plot key={transform.entryId} transform={transform} />

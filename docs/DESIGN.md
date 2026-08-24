@@ -325,6 +325,14 @@ No art. Prove the navigation feels good before making it pretty.
 **M2 — Skins and props.** Plot skins per district, canvas signs, ambient props,
 construction sites, lighting, fog.
 
+**M2.5 — The environment.** Added after M2, when the world turned out to read
+as grey cubes on an empty plane. The plots and roads were specified in detail
+and everything *between* them was not, so there was nothing to build against.
+Covers: road surface detail and markings, verges, ground variation, planting
+and street furniture scattered by a pure seeded function, and enough massing
+variety that a building stops reading as a cube. Scatter is instanced from the
+start — this is where the draw-call budget in §8 is actually spent.
+
 **M3 — Panels and polish.** Project panels, deep links, mode transitions,
 keyboard nav, the Montreal detour, the fog ending.
 

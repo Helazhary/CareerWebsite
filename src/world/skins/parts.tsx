@@ -34,6 +34,91 @@ export function Shell({
 }
 
 /**
+ * A wider base course under the main mass.
+ *
+ * One box is a cube however it is coloured. A plinth and a setback give a
+ * building a silhouette, which is what the eye actually reads at a distance and
+ * at speed — far more than any amount of surface detail.
+ */
+export function Plinth({
+  footprint,
+  tint,
+  height = 1.6,
+  spread = 1.8,
+}: SkinProps & { height?: number; spread?: number }): React.JSX.Element {
+  return (
+    <mesh position={[0, height / 2, 0]} castShadow receiveShadow>
+      <boxGeometry args={[footprint.width + spread, height, footprint.depth + spread]} />
+      <meshStandardMaterial color={tint} roughness={0.95} metalness={0} />
+    </mesh>
+  );
+}
+
+/** A narrower upper storey, stepped back from the mass below. */
+export function Setback({
+  footprint,
+  tint,
+  from = 0.72,
+  rise = 0.3,
+  inset = 0.68,
+}: SkinProps & { from?: number; rise?: number; inset?: number }): React.JSX.Element {
+  const base = footprint.height * from;
+  const height = footprint.height * rise;
+  return (
+    <mesh position={[0, base + height / 2, 0]} castShadow receiveShadow>
+      <boxGeometry args={[footprint.width * inset, height, footprint.depth * inset]} />
+      <meshStandardMaterial color={tint} roughness={0.9} metalness={0} />
+    </mesh>
+  );
+}
+
+/** A pitched roof. Institutions and workshops read as buildings, not blocks. */
+export function PitchedRoof({
+  footprint,
+  color,
+  y,
+  pitch = 0.28,
+  overhang = 1.2,
+}: {
+  footprint: Footprint;
+  color: string;
+  y: number;
+  pitch?: number;
+  overhang?: number;
+}): React.JSX.Element {
+  const height = footprint.depth * pitch;
+  return (
+    <mesh position={[0, y + height / 2, 0]} rotation={[0, Math.PI / 4, 0]} castShadow>
+      {/* A four-sided cone is a hipped roof, and costs eight triangles. */}
+      <coneGeometry args={[(footprint.depth + overhang) * 0.78, height, 4]} />
+      <meshStandardMaterial color={color} roughness={0.92} flatShading />
+    </mesh>
+  );
+}
+
+/** Rooftop clutter: plant housings, vents, a stair head. */
+export function RoofPlant({
+  footprint,
+  tint,
+  y,
+}: SkinProps & { y: number }): React.JSX.Element {
+  const boxes: { x: number; z: number; w: number; d: number; h: number }[] = [
+    { x: -footprint.width * 0.22, z: footprint.depth * 0.16, w: 3.2, d: 2.4, h: 1.8 },
+    { x: footprint.width * 0.2, z: -footprint.depth * 0.18, w: 2.2, d: 2.2, h: 2.6 },
+  ];
+  return (
+    <group>
+      {boxes.map((box) => (
+        <mesh key={`${box.x}:${box.z}`} position={[box.x, y + box.h / 2, box.z]} castShadow>
+          <boxGeometry args={[box.w, box.h, box.d]} />
+          <meshStandardMaterial color={tint} roughness={0.95} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/**
  * A lit horizontal band across the front face — windows, screens, terminal
  * glow. Emissive so it reads at dusk, which is the palette the whole world
  * ships in (DESIGN.md §10).
