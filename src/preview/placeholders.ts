@@ -21,9 +21,19 @@ import type { Entry } from '@content/schema';
  * empty gallery fills with placeholders. Requiring a development build as well
  * makes that impossible regardless of how the deploy is configured: preview is
  * a thing you run locally, and a production bundle cannot express it.
+ *
+ * Taken as arguments so the rule can be tested directly. `process.env` is not
+ * writable on Node 22, so a test that tried to set NODE_ENV to prove this
+ * threw rather than asserting anything.
  */
-export const PREVIEW_MODE =
-  process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_PREVIEW === '1';
+export function isPreviewEnabled(nodeEnv: string | undefined, flag: string | undefined): boolean {
+  return nodeEnv !== 'production' && flag === '1';
+}
+
+export const PREVIEW_MODE = isPreviewEnabled(
+  process.env.NODE_ENV,
+  process.env.NEXT_PUBLIC_PREVIEW,
+);
 
 /** How many placeholder frames to show for an entry with no media at all. */
 const FRAMES_BY_SIZE: Record<Entry['size'], number> = { sm: 1, md: 2, lg: 3 };

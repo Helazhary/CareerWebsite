@@ -3,7 +3,7 @@ import { entries } from '@content/registry';
 import { buildRoadGraph } from '@/world/graph';
 import { layoutPlots } from '@/world/layout';
 import { DEFAULT_PROXIMITY, nearestPlot } from '@/world/proximity';
-import { headingOf, initialDriveState, positionOf, step } from '@/world/drive';
+import { headingOf, initialDriveState, positionOf, stateAtAnchor, step } from '@/world/drive';
 
 const graph = buildRoadGraph(entries);
 const plots = layoutPlots(graph, entries);
@@ -48,19 +48,56 @@ describe('nearestPlot', () => {
     }
   });
 
-  it('offers every building at some point during a drive down the highway', () => {
-    // The highway is the resume. If driving it end to end never surfaces a job
-    // or a degree, the panel is unreachable without the minimap.
+  /** Drive with the throttle held and collect everything offered on the way. */
+  function offeredWhileDriving(seconds: number): Set<string> {
     let state = initialDriveState(graph);
     const seen = new Set<string>();
-    for (let frame = 0; frame < 60 * 25; frame += 1) {
+    for (let frame = 0; frame < 60 * seconds; frame += 1) {
       state = step(graph, state, { throttle: true, steer: 0, flip: false }, 1 / 60);
       const found = nearestPlot(positionOf(graph, state), headingOf(graph, state), plots);
       if (found !== undefined) seen.add(found.entryId);
     }
+    return seen;
+  }
 
-    const highway = plots.filter((plot) => plot.district === 'highway' || plot.district === 'garage');
-    const missed = highway.filter((plot) => !seen.has(plot.entryId)).map((plot) => plot.entryId);
+  it('offers every building on the spine during a drive down the highway', () => {
+    // The highway is the resume. If driving it end to end never surfaces a job
+    // or a degree, the panel is unreachable without the minimap.
+    const seen = offeredWhileDriving(30);
+    const onSpine = entries.filter(
+      (entry) => (entry.district === 'highway' || entry.district === 'garage') && !entry.detour,
+    );
+    const missed = onSpine.filter((entry) => !seen.has(entry.id)).map((entry) => entry.id);
     expect(missed).toEqual([]);
+  });
+
+  it('does not offer a detour entry to someone who drove straight past', () => {
+    // The point of a detour is that you have to leave the main road. If it were
+    // offered from the spine the bridge would be decoration.
+    const seen = offeredWhileDriving(30);
+    for (const entry of entries.filter((e) => e.detour)) {
+      expect(seen.has(entry.id), `"${entry.id}" was offered without taking the detour`).toBe(false);
+    }
+  });
+
+  it('offers a detour entry to someone who takes the detour', () => {
+    // ...and it must be reachable, or the content is stranded.
+    for (const entry of entries.filter((e) => e.detour)) {
+      const anchor = graph.anchorByEntryId.get(entry.id);
+      expect(anchor).toBeDefined();
+      if (anchor === undefined) continue;
+      const bridge = graph.edgeById.get(anchor.edgeId);
+      expect(bridge).toBeDefined();
+      if (bridge === undefined) continue;
+
+      let state = stateAtAnchor(graph, anchor);
+      let found = false;
+      for (let frame = 0; frame < 60 * 6 && !found; frame += 1) {
+        state = step(graph, state, { throttle: true, steer: 0, flip: false }, 1 / 60);
+        const near = nearestPlot(positionOf(graph, state), headingOf(graph, state), plots);
+        if (near?.entryId === entry.id) found = true;
+      }
+      expect(found, `"${entry.id}" is unreachable even on its own detour`).toBe(true);
+    }
   });
 });
