@@ -55,14 +55,24 @@ function drawSign(text: string, panel: string, ink: string): THREE.CanvasTexture
   return texture;
 }
 
+/**
+ * Where the sign hangs.
+ *
+ * `facade` mounts it on the building. `hoarding` stands it on posts at the
+ * kerb, which is what a site with no finished facade to mount on actually has.
+ */
+export type SignMount = 'facade' | 'hoarding';
+
 export function Sign({
   text,
   footprint,
+  mount = 'facade',
   panel = '#11151d',
   ink = '#e7eaf0',
 }: {
   text: string;
   footprint: Footprint;
+  mount?: SignMount;
   panel?: string;
   ink?: string;
 }): React.JSX.Element | null {
@@ -74,24 +84,41 @@ export function Sign({
 
   if (texture === null) return null;
 
-  const width = footprint.width * 0.78;
+  const width = footprint.width * (mount === 'hoarding' ? 0.62 : 0.78);
   const height = width * (CANVAS_HEIGHT / CANVAS_WIDTH);
-  // Just under the roofline, clear of doors and window bands below.
-  const y = Math.max(footprint.height - height * 0.85, footprint.height * 0.55);
+
+  // A facade sign hangs just under the roofline, clear of doors and window
+  // bands. A hoarding stands at the kerb, well in front of the scaffolding.
+  const y = mount === 'hoarding'
+    ? height / 2 + 1.6
+    : Math.max(footprint.height - height * 0.85, footprint.height * 0.55);
+  const z = footprint.depth / 2 + (mount === 'hoarding' ? 3.2 : 0.12);
+
+  const face = (
+    <mesh>
+      <planeGeometry args={[width, height]} />
+      <meshStandardMaterial
+        map={texture}
+        transparent={false}
+        roughness={0.6}
+        emissive="#ffffff"
+        emissiveMap={texture}
+        emissiveIntensity={0.55}
+      />
+    </mesh>
+  );
+
+  if (mount === 'facade') return <group position={[0, y, z]}>{face}</group>;
 
   return (
-    <group position={[0, y, footprint.depth / 2 + 0.12]}>
-      <mesh>
-        <planeGeometry args={[width, height]} />
-        <meshStandardMaterial
-          map={texture}
-          transparent={false}
-          roughness={0.6}
-          emissive="#ffffff"
-          emissiveMap={texture}
-          emissiveIntensity={0.55}
-        />
-      </mesh>
+    <group position={[0, 0, z]}>
+      <group position={[0, y, 0]}>{face}</group>
+      {[-width * 0.36, width * 0.36].map((x) => (
+        <mesh key={x} position={[x, (y - height / 2) / 2, -0.12]} castShadow>
+          <boxGeometry args={[0.28, y - height / 2, 0.28]} />
+          <meshStandardMaterial color="#5c6473" roughness={0.85} />
+        </mesh>
+      ))}
     </group>
   );
 }

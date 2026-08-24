@@ -3,6 +3,7 @@
 import { entries } from '@content/registry';
 import type { PlotTransform } from './layout';
 import { DISTRICT_TINT } from './palette';
+import { ConstructionSite } from './skins/ConstructionSite';
 import { Sign } from './Sign';
 import { renderSkin } from './skins/registry';
 
@@ -23,16 +24,15 @@ export function Plot({ transform }: { transform: PlotTransform }): React.JSX.Ele
   return (
     <group position={[position.x, 0, position.z]} rotation={[0, rotationY, 0]}>
       {status === 'in-progress' ? (
-        // M2 task: real scaffolding. Until then an unfinished building still
-        // has to read as unfinished.
-        <mesh position={[0, footprint.height / 2, 0]}>
-          <boxGeometry args={[footprint.width, footprint.height, footprint.depth]} />
-          <meshStandardMaterial color={DISTRICT_TINT[district]} wireframe />
-        </mesh>
+        <ConstructionSite footprint={footprint} />
       ) : (
         renderSkin(skin, { footprint, tint: DISTRICT_TINT[district] })
       )}
-      <Sign text={title} footprint={footprint} />
+      <Sign
+        text={title}
+        footprint={footprint}
+        mount={status === 'in-progress' ? 'hoarding' : 'facade'}
+      />
     </group>
   );
 }
