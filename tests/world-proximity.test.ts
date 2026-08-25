@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { entries } from '@content/registry';
 import { buildRoadGraph } from '@/world/graph';
-import { layoutPlots } from '@/world/layout';
+import { anchorsForPlots, layoutPlots } from '@/world/layout';
 import { DEFAULT_PROXIMITY, nearestPlot } from '@/world/proximity';
 import { headingOf, initialDriveState, positionOf, stateAtAnchor, step } from '@/world/drive';
 
@@ -118,6 +118,35 @@ describe('nearestPlot', () => {
    * Sampled along the roads rather than driven, because whether a building can
    * be offered at all is a property of the geometry, not of how you got there.
    */
+  /**
+   * Arriving at a project must put you at *that* project.
+   *
+   * The graph's anchor is where a building asked to stand; `packFrontage` slides
+   * it along the frontage when the spot is taken and leaves the anchor behind.
+   * Most entries end up 28 units from their own building, the displaced ones at
+   * 34-52, and at that range a neighbour on the far side of the road can be the
+   * nearer of the two — which is what put "Real-Life Chess Digitization" on the
+   * prompt after deep-linking to `transformer-cnn-study`.
+   *
+   * Asserted against the anchors the app actually navigates with, which are
+   * derived from the laid-out plots.
+   */
+  it('puts you at the building you asked for', () => {
+    const anchors = anchorsForPlots(plots);
+    for (const entry of entries) {
+      const anchor = anchors.get(entry.id);
+      expect(anchor, `"${entry.id}" has no anchor`).toBeDefined();
+      if (anchor === undefined) continue;
+
+      const state = stateAtAnchor(graph, anchor);
+      const near = nearestPlot(positionOf(graph, state), headingOf(graph, state), plots);
+      expect(
+        near?.entryId,
+        `arriving at "${entry.id}" offers "${near?.entryId ?? 'nothing'}"`,
+      ).toBe(entry.id);
+    }
+  });
+
   it('offers every building somewhere on the road', () => {
     const offered = new Set<string>();
     for (const edge of graph.edgeById.values()) {

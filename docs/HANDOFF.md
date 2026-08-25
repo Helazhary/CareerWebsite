@@ -137,26 +137,21 @@ These cost real time and are invisible in the finished code.
   `project-car` declares `'toolbox'` and `'car-lift'` in their `ambient`
   arrays. Unknown ids are ignored safely, so this is harmless — but it is a
   schema field doing nothing.
-- **`layoutPlots` displaces buildings and leaves their anchors behind.** It
-  pushes plots apart to stop them overlapping and never moves the entry's road
-  anchor to follow. Most entries sit 28 units from their own building; the
-  displaced ones sit at 34–52. Two are far enough out that a *neighbour's*
-  building is closer to their anchor than their own — `transformer-cnn-study`
-  (own 34.7, chess-digitization 28.0) and `agentic-dev-pipelines` (own 35.2,
-  telegram-bot 32.9).
+- **`layoutPlots` still displaces buildings and leaves their graph anchors
+  behind** — but nothing navigates by those any more. `packFrontage` slides a
+  building along its frontage when the preferred spot is taken and does not move
+  `graph.anchorByEntryId` with it, so the anchor keeps naming a stretch of road
+  the building no longer stands beside. Most entries end up 28 units from their
+  own building; the displaced ones 34-52.
 
-  The visible symptom today is small: deep-linking to `/p/transformer-cnn-study/`
-  opens the right panel, but closing it leaves "Real-Life Chess Digitization" on
-  the prompt. Every building is still reachable by driving — that is now
-  asserted in `tests/world-proximity.test.ts`, so if a future layout change
-  strands one, it fails loudly instead of silently.
+  `PlotTransform` now records the road it fronts and where along it it actually
+  landed, `anchorsForPlots` derives navigation anchors from that, and deep links
+  and the map both use those. The graph's anchors remain the *input* the layout
+  works from, which is correct — they are just not where the buildings ended up,
+  and two tests in `tests/world-proximity.test.ts` now hold that line: every
+  building is offerable somewhere, and arriving at a project puts you at that
+  project. Both were negative-checked.
 
-  The proper fix is in the pure layer: either cap the displacement, or move the
-  anchor with the plot so "arrive at this building" means the point of road
-  beside where the building actually ended up. Weighting `nearestPlot` by
-  alignment does **not** work — the margin is 19.7 against 13.0 in effective
-  distance, and the weighting needed to close that would let a building 40 units
-  ahead beat one 15 units beside you.
 - **`npm run dev:preview` fills empty galleries with placeholder cards.** Use
   plain `npm run dev` to see the site as it actually ships.
 

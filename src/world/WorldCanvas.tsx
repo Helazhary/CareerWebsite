@@ -12,7 +12,7 @@ import { ProjectPanel } from '@/ui/ProjectPanel';
 import { type DriveState, initialDriveState, stateAtAnchor } from './drive';
 import { Scene, type HudState } from './Scene';
 import { useDriveInput } from './useDriveInput';
-import { worldGraph } from './world';
+import { worldAnchorByEntryId, worldGraph } from './world';
 
 const ENTRY_BY_ID = new Map(entries.map((entry) => [entry.id, entry]));
 
@@ -28,7 +28,7 @@ export default function WorldCanvas({
   const stateRef = useRef<DriveState>(
     useMemo(() => {
       const anchor =
-        initialEntryId === undefined ? undefined : worldGraph.anchorByEntryId.get(initialEntryId);
+        initialEntryId === undefined ? undefined : worldAnchorByEntryId.get(initialEntryId);
       return anchor === undefined ? initialDriveState(worldGraph) : stateAtAnchor(worldGraph, anchor);
     }, [initialEntryId]),
   );
@@ -63,7 +63,7 @@ export default function WorldCanvas({
   }, [hud?.nearbyEntryId]);
 
   const travelTo = useCallback((entryId: string): void => {
-    const anchor = worldGraph.anchorByEntryId.get(entryId);
+    const anchor = worldAnchorByEntryId.get(entryId);
     if (anchor === undefined) return;
     stateRef.current = stateAtAnchor(worldGraph, anchor);
     setMapOpen(false);

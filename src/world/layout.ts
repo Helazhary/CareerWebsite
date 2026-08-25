@@ -14,6 +14,7 @@
 import type { Entry, District } from '@content/schema';
 import {
   type GraphEdge,
+  type RoadAnchor,
   type RoadGraph,
   type Vec2,
   normalAt,
@@ -29,6 +30,22 @@ export interface Footprint {
 export interface PlotTransform {
   readonly entryId: string;
   readonly position: Vec2;
+  /**
+   * The road this building fronts onto, and where along it the building
+   * actually ended up.
+   *
+   * Not the same as the entry's anchor. `packFrontage` slides a building
+   * forward along the frontage whenever its preferred spot is taken, and the
+   * anchor stays where it was — so the further a building is displaced, the
+   * further the road point named by its anchor drifts from the building itself.
+   * Recorded here so "the stretch of road beside this building" is a fact about
+   * where the building ended up rather than about where it hoped to go.
+   */
+  readonly edgeId: string;
+  /** Parameter along `edgeId`, 0..1. */
+  readonly u: number;
+  /** Which side of that road the building sits on. */
+  readonly side: -1 | 1;
   /**
    * Rotation about the Y axis in radians, in three.js convention (+Z is the
    * model's forward). Every building faces the road it fronts onto.
@@ -118,6 +135,9 @@ function candidateAt(
   return {
     entryId: entry.id,
     position: { x: centre.x + outward.x * setback, z: centre.z + outward.z * setback },
+    edgeId: edge.id,
+    u,
+    side,
     // Face back across the road: the inverse of the outward normal.
     rotationY: Math.atan2(-outward.x, -outward.z),
     footprint,
@@ -263,6 +283,27 @@ export function layoutPlots(
   }
 
   return placed;
+}
+
+/**
+ * Where to put the car so it is standing at a given building.
+ *
+ * Deep links and the map both need "take me to this project", and both used to
+ * ask the *graph* for the entry's anchor. That is the spot the building asked
+ * for, not the spot it got: `transformer-cnn-study` is displaced far enough
+ * along its frontage that `chess-digitization` is nearer to its anchor than it
+ * is itself, so arriving by deep link put the neighbour's name on the prompt.
+ *
+ * Derived from the plot instead, so it always names the road beside the
+ * building that is actually there.
+ */
+export function anchorsForPlots(plots: readonly PlotTransform[]): Map<string, RoadAnchor> {
+  return new Map(
+    plots.map((plot) => [
+      plot.entryId,
+      { entryId: plot.entryId, edgeId: plot.edgeId, u: plot.u, side: plot.side },
+    ]),
+  );
 }
 
 /** Centre-to-centre distance between two plots. */
