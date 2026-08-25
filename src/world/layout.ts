@@ -60,6 +60,8 @@ export interface PlotTransform {
   readonly skin: Entry['skin'];
   readonly status: Entry['status'];
   readonly size: Entry['size'];
+  /** Ambient prop ids from content. Unknown ids are ignored by the kit. */
+  readonly ambient: readonly string[];
 }
 
 export interface LayoutOptions {
@@ -147,6 +149,7 @@ function candidateAt(
     skin: entry.skin,
     status: entry.status,
     size: entry.size,
+    ambient: entry.ambient,
   };
 }
 

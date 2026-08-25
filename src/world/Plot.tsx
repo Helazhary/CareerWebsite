@@ -5,6 +5,7 @@ import type { PlotTransform } from './layout';
 import { DISTRICT_TINT } from './palette';
 import { ConstructionSite } from './skins/ConstructionSite';
 import { Sign } from './Sign';
+import { renderAmbient } from './skins/ambient';
 import { renderSkin } from './skins/registry';
 
 /** Titles by id. Built once — the renderer reads content, it does not embed it. */
@@ -18,7 +19,8 @@ const TITLES = new Map(entries.map((entry) => [entry.id, entry.title]));
  * `district`, `size` and `status`, and by nothing else.
  */
 export function Plot({ transform }: { transform: PlotTransform }): React.JSX.Element {
-  const { entryId, position, rotationY, footprint, district, skin, status } = transform;
+  const { entryId, position, rotationY, footprint, district, skin, status, ambient } =
+    transform;
   const title = TITLES.get(entryId) ?? entryId;
 
   return (
@@ -28,6 +30,7 @@ export function Plot({ transform }: { transform: PlotTransform }): React.JSX.Ele
       ) : (
         renderSkin(skin, { footprint, tint: DISTRICT_TINT[district] })
       )}
+      {renderAmbient(ambient, footprint)}
       <Sign
         text={title}
         footprint={footprint}

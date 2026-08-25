@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { unknownAmbientIds } from '@/world/skins/ambient';
 import {
   entries,
   byChronology,
@@ -74,6 +75,24 @@ describe('content registry', () => {
         expect(item.alt.length).toBeGreaterThanOrEqual(4);
       }
     }
+  });
+
+  /**
+   * `ambient` sat in the schema from M0 with every entry declaring one or two,
+   * and nothing rendered any of them — seventeen entries asked for props and
+   * got bare forecourts, silently, because an unregistered id is ignored rather
+   * than throwing.
+   *
+   * Ignoring unknown ids is the right behaviour at runtime: content should be
+   * able to name a prop before the prop exists, and a typo must never blank a
+   * building. But nothing was checking that the two lists had ever met.
+   */
+  it('registers a prop for every ambient id content asks for', () => {
+    const asked = [...new Set(entries.flatMap((entry) => entry.ambient))].sort();
+    expect(asked.length).toBeGreaterThan(0);
+    expect(unknownAmbientIds(asked), 'ambient ids named in content with no prop registered').toEqual(
+      [],
+    );
   });
 
   it('exposes tags most-used first', () => {
