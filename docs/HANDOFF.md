@@ -20,6 +20,8 @@ Read this, then `CLAUDE.md`, then `docs/DESIGN.md` §9 for the milestone plan.
 | Garage / intro / About / look-around | live |
 | Directional sunset; the pyramids | live |
 | Car tail lights; garage lighting | live |
+| Navigation anchors derived from laid-out plots | live |
+| Ambient props | live |
 | M4 — real car `.glb` | not started |
 | M5 — showpiece | not started |
 
@@ -113,6 +115,18 @@ These cost real time and are invisible in the finished code.
 - **The chase camera never leaves the back of the car.** Detail on the front is
   detail nobody sees. Tail lights did more for the car reading as a car than
   everything on the nose put together.
+- **An emissive box is a slab, not a sign.** The arcade marquee glowed on all
+  six faces, so from any camera above eye level — which is most of them — it
+  read as a flat lozenge of colour. A dark housing with one lit face reads as a
+  lit sign from everywhere.
+- **A field nothing reads fails silently and forever.** `ambient` sat in the
+  schema for four milestones with every entry populating it and no renderer
+  looking. Ignoring unknown ids is right at runtime and is exactly what hid it.
+  If a schema field is optional at runtime, something has to assert the two
+  lists have met.
+- **Bounding circles lie about long thin things.** A radius round two parked
+  cars reaches the kerb. Where only one direction is constrained, measure that
+  direction.
 
 ---
 
@@ -133,10 +147,14 @@ These cost real time and are invisible in the finished code.
 
 ## 6. Loose ends
 
-- **Ambient props are not rendered.** `riscv-cpu` declares `'oscilloscope'` and
-  `project-car` declares `'toolbox'` and `'car-lift'` in their `ambient`
-  arrays. Unknown ids are ignored safely, so this is harmless — but it is a
-  schema field doing nothing.
+- **The car is still primitives.** M4 replaces it with a `.glb` and there is no
+  model in the repo, so it is blocked on Hussein supplying one or on a decision
+  to sculpt a better silhouette from primitives instead. It now has tail lights
+  and a boot lip, which is what it most needed, but the body is one box: no
+  bonnet slope, no greenhouse taper, no arches.
+- **M5, the showpiece, has not been started.** `showpiece` is in the schema and
+  reserved; no entry sets it yet. Read DESIGN.md §9 before proposing anything.
+
 - **`layoutPlots` still displaces buildings and leaves their graph anchors
   behind** — but nothing navigates by those any more. `packFrontage` slides a
   building along its frontage when the preferred spot is taken and does not move
