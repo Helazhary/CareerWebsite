@@ -8,6 +8,8 @@ import { headingOf, initialDriveState, positionOf, stateAtAnchor, step } from '@
 const graph = buildRoadGraph(entries);
 const plots = layoutPlots(graph, entries);
 const AHEAD = { x: 1, z: 0 };
+/** Fine enough that a building only offered over a short stretch is still seen. */
+const SAMPLES_PER_EDGE = 400;
 
 describe('nearestPlot', () => {
   it('finds nothing in open country', () => {
@@ -98,6 +100,47 @@ describe('nearestPlot', () => {
         if (near?.entryId === entry.id) found = true;
       }
       expect(found, `"${entry.id}" is unreachable even on its own detour`).toBe(true);
+    }
+  });
+
+  /**
+   * The detour test above proves the detour entries can be reached. Nothing
+   * proved it for the other fourteen.
+   *
+   * `layoutPlots` displaces buildings away from their anchors to keep them from
+   * overlapping, and it does not move the anchor with them. Push one far enough
+   * and a neighbour's building becomes the nearest thing to every point of road
+   * beside it — at which point that project has no button anywhere in the world
+   * and is reachable only by URL. Two entries are already displaced far enough
+   * that a neighbour's centre is closer to their own anchor than their own
+   * building is, so this is a live margin, not a hypothetical one.
+   *
+   * Sampled along the roads rather than driven, because whether a building can
+   * be offered at all is a property of the geometry, not of how you got there.
+   */
+  it('offers every building somewhere on the road', () => {
+    const offered = new Set<string>();
+    for (const edge of graph.edgeById.values()) {
+      for (const direction of [1, -1] as const) {
+        for (let i = 0; i <= SAMPLES_PER_EDGE; i += 1) {
+          const state = {
+            edgeId: edge.id,
+            u: i / SAMPLES_PER_EDGE,
+            direction,
+            speed: 0,
+            targetNodeId: edge.toId,
+            choice: 0,
+          };
+          const near = nearestPlot(positionOf(graph, state), headingOf(graph, state), plots);
+          if (near?.entryId !== undefined) offered.add(near.entryId);
+        }
+      }
+    }
+
+    for (const entry of entries) {
+      expect(offered.has(entry.id), `"${entry.id}" is never the nearest building anywhere`).toBe(
+        true,
+      );
     }
   });
 });
