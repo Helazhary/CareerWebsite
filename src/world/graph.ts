@@ -620,3 +620,67 @@ export function branchesFrom(graph: RoadGraph, nodeId: string, arrivedOn?: strin
 export function otherEnd(edge: GraphEdge, nodeId: string): string {
   return edge.fromId === nodeId ? edge.toId : edge.fromId;
 }
+
+/**
+ * How far a side road runs before it is clear of the roads it left.
+ *
+ * A junction is not a point. A spur leaves the spine and stays alongside it for
+ * tens of units before there is room for both of them to have their own kerbs,
+ * verges and lines — and until then, whatever each road draws beside itself is
+ * drawn on top of its neighbour. Coplanar and identically coloured, that is
+ * z-fighting; it produced a stitched white slab at every off-ramp.
+ *
+ * The renderer needs one number: how long to hold a side road's flanking
+ * ribbons closed for. That number is a property of the graph's geometry rather
+ * than a look, so it is measured here rather than guessed there — content that
+ * changes the spacing of the world changes this answer with it, instead of
+ * silently outgrowing a constant.
+ *
+ * Measured as: walking out from the junction along the minor road, the distance
+ * at which its centreline is finally `clearance` from every neighbour's, taking
+ * each neighbour as a whole rather than at matched distance — the spur curves,
+ * and the point of it nearest the spine is not the point level with it.
+ */
+export function minorRoadClearance(graph: RoadGraph, clearance: number): number {
+  const STEP = 2;
+  const LIMIT = 160;
+  const SAMPLES = 48;
+  let needed = 0;
+
+  for (const node of graph.nodes) {
+    if (node.kind !== 'junction') continue;
+    const incident = node.edgeIds.flatMap((id) => {
+      const edge = graph.edgeById.get(id);
+      return edge === undefined ? [] : [edge];
+    });
+
+    for (const minor of incident) {
+      if (minor.kind === 'spine') continue;
+      const outward = minor.fromId === node.id;
+
+      for (const other of incident) {
+        if (other.id === minor.id) continue;
+
+        let clearedAt = LIMIT;
+        for (let distance = 0; distance <= LIMIT; distance += STEP) {
+          const u = outward ? distance / minor.length : 1 - distance / minor.length;
+          if (u < 0 || u > 1) break;
+          const point = sampleEdge(minor, u);
+
+          let nearest = Number.POSITIVE_INFINITY;
+          for (let i = 0; i <= SAMPLES; i += 1) {
+            const against = sampleEdge(other, i / SAMPLES);
+            nearest = Math.min(nearest, Math.hypot(point.x - against.x, point.z - against.z));
+          }
+          if (nearest >= clearance) {
+            clearedAt = distance;
+            break;
+          }
+        }
+        needed = Math.max(needed, clearedAt);
+      }
+    }
+  }
+
+  return needed;
+}

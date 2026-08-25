@@ -5,6 +5,7 @@ import {
   DEFAULT_GRAPH_OPTIONS,
   branchesFrom,
   buildRoadGraph,
+  minorRoadClearance,
   monthIndex,
   otherEnd,
   sampleEdge,
@@ -328,5 +329,58 @@ describe('the fog ending', () => {
     // Far enough that the road visibly continues rather than simply stopping
     // just after the final plot.
     expect((fog?.position.x ?? 0) - Math.max(...plotXs)).toBeGreaterThan(200);
+  });
+
+  /**
+   * The number the road renderer holds side-road kerbs and verges closed for.
+   *
+   * It has to be at least as far as the roads actually take to separate. When
+   * it was a hand-picked 46 it was two units short of the spurs and five short
+   * of the detour, and the shortfall showed up as a stitched white slab of
+   * z-fighting at every off-ramp — coplanar kerbs and verges from two roads
+   * drawn on top of each other at the same height.
+   *
+   * Asserting it is measured rather than assumed: a constant would go quietly
+   * out of date the first time content changed the spacing of the world, and
+   * the only symptom would be a rendering artefact nobody connects to content.
+   */
+  it('measures how far a side road runs before it is clear of the junction', () => {
+    const graph = buildRoadGraph(entries);
+    const roadWidth = (7 + 1.1 + 7) * 2;
+    const clearance = minorRoadClearance(graph, roadWidth);
+
+    // Something, or the renderer is tapering nothing.
+    expect(clearance).toBeGreaterThan(0);
+
+    // And genuinely clear at that distance: walk each minor road out to the
+    // measured point and check it against every neighbour of its junction.
+    for (const node of graph.nodes) {
+      if (node.kind !== 'junction') continue;
+      const incident = node.edgeIds.flatMap((id) => {
+        const edge = graph.edgeById.get(id);
+        return edge === undefined ? [] : [edge];
+      });
+
+      for (const minor of incident) {
+        if (minor.kind === 'spine') continue;
+        if (clearance > minor.length) continue;
+        const outward = minor.fromId === node.id;
+        const u = outward ? clearance / minor.length : 1 - clearance / minor.length;
+        const point = sampleEdge(minor, u);
+
+        for (const other of incident) {
+          if (other.id === minor.id) continue;
+          let nearest = Number.POSITIVE_INFINITY;
+          for (let i = 0; i <= 96; i += 1) {
+            const against = sampleEdge(other, i / 96);
+            nearest = Math.min(nearest, Math.hypot(point.x - against.x, point.z - against.z));
+          }
+          expect(
+            nearest,
+            `"${minor.id}" is still ${nearest.toFixed(1)} from "${other.id}" at the measured clearance`,
+          ).toBeGreaterThanOrEqual(roadWidth - 1);
+        }
+      }
+    }
   });
 });

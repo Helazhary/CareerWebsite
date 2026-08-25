@@ -22,6 +22,7 @@ Read this, then `CLAUDE.md`, then `docs/DESIGN.md` §9 for the milestone plan.
 | Car tail lights; garage lighting | live |
 | Navigation anchors derived from laid-out plots | live |
 | Ambient props | live |
+| Junction rendering: tapered side roads | live |
 | M4 — real car `.glb` | not started |
 | M5 — showpiece | not started |
 
@@ -104,6 +105,18 @@ These cost real time and are invisible in the finished code.
   must reflect rather than clamp.
 - **Test final positions, not intermediate data.** The highway once rendered
   out of chronological order while its anchors were perfectly correct.
+- **A junction is not a point.** A spur leaves the spine and stays alongside it
+  for around fifty units before there is room for both to have their own kerbs
+  and verges. Until then each road was drawing its flanking ribbons on top of
+  its neighbour's — coplanar, identically coloured, at the same height — which
+  is z-fighting, and it showed up as a stitched white slab at every off-ramp.
+  The circular apron at the node was nowhere near big enough to cover it and
+  never could be: at radius fifty it would be a lake of tarmac.
+- **Measure the distance, do not pick it.** The first taper was a hand-picked
+  46 and was two units short for the spurs and five short for the detour, which
+  left a thinner version of the same artefact. `minorRoadClearance` computes it
+  from the graph now, so content that changes the spacing of the world changes
+  the taper with it.
 - **A dark silhouette needs a light background.** The pyramids were placed
   opposite the sun, where the sky is nearly their own value. Two of the three
   were also shorter than the ridge in front of them, so they were not merely
@@ -154,7 +167,6 @@ These cost real time and are invisible in the finished code.
   bonnet slope, no greenhouse taper, no arches.
 - **M5, the showpiece, has not been started.** `showpiece` is in the schema and
   reserved; no entry sets it yet. Read DESIGN.md §9 before proposing anything.
-
 - **`layoutPlots` still displaces buildings and leaves their graph anchors
   behind** — but nothing navigates by those any more. `packFrontage` slides a
   building along its frontage when the preferred spot is taken and does not move
@@ -169,7 +181,10 @@ These cost real time and are invisible in the finished code.
   and two tests in `tests/world-proximity.test.ts` now hold that line: every
   building is offerable somewhere, and arriving at a project puts you at that
   project. Both were negative-checked.
-
+- **A thin hairline still flickers on markings seen at a grazing angle far
+  down the road.** Sub-pixel geometry aliasing, not z-fighting — the polygon
+  offset fixed the stitching. It would need either wider markings at distance
+  or MSAA to go further, and neither is obviously worth it.
 - **`npm run dev:preview` fills empty galleries with placeholder cards.** Use
   plain `npm run dev` to see the site as it actually ships.
 

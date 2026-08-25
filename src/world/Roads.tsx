@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { type GraphEdge, type RoadGraph, normalAt, sampleEdge } from './graph';
+import { type GraphEdge, type RoadGraph, minorRoadClearance, normalAt, sampleEdge } from './graph';
 import { WORLD_COLORS } from './palette';
 import { makeRoadTexture } from './textures';
 
@@ -14,6 +14,21 @@ const KERB_WIDTH = 1.1;
 const CENTRE_LINE_WIDTH = 0.55;
 const EDGE_LINE_WIDTH = 0.34;
 const VERGE_WIDTH = 7;
+/**
+ * A little past clear, so the ribbon reaches full width having already left its
+ * neighbour rather than exactly as it does.
+ */
+const TAPER_MARGIN = 1.15;
+
+/**
+ * Side roads sit a hair under the spine.
+ *
+ * Where two carriageways overlap near a junction they are the same colour, so
+ * the only thing the overlap costs is z-fighting — and coplanar surfaces at
+ * identical heights is exactly how you get it. Four millimetres is invisible
+ * from any camera in this scene and makes the ordering deterministic.
+ */
+const MINOR_DROP = 0.004;
 /** Dash and gap along the centre line, in world units. */
 const DASH = 9;
 const GAP = 7;
@@ -25,23 +40,69 @@ const GAP = 7;
  * kerbs and the centre line. Without the markings the road is invisible against
  * the ground at driving speed — the tarmac and the verge are both dark grey.
  */
-function buildRibbon(edge: GraphEdge, from: number, to: number, y: number): THREE.BufferGeometry {
+/**
+ * How a ribbon fades out at a junction: over what distance, and at which ends.
+ *
+ * Rather than cutting the flanking ribbons off at a hard line, a side road's
+ * kerbs, verges and lines collapse to nothing as they approach the junction —
+ * which is also what a real slip road does, widening out of the mouth instead
+ * of starting at full width.
+ */
+interface Taper {
+  readonly length: number;
+  readonly atStart: boolean;
+  readonly atEnd: boolean;
+}
+
+/** Eased rather than linear, so a collapsing kerb does not read as a wedge. */
+function smoothstep(t: number): number {
+  const clamped = Math.min(Math.max(t, 0), 1);
+  return clamped * clamped * (3 - 2 * clamped);
+}
+
+/** How much of its full width the ribbon has at this point along the edge. */
+function widthAt(edge: GraphEdge, u: number, taper: Taper | undefined): number {
+  if (taper === undefined) return 1;
+  const along = u * edge.length;
+  let scale = 1;
+  if (taper.atStart) scale = Math.min(scale, smoothstep(along / taper.length));
+  if (taper.atEnd) scale = Math.min(scale, smoothstep((edge.length - along) / taper.length));
+  return scale;
+}
+
+function buildRibbon(
+  edge: GraphEdge,
+  from: number,
+  to: number,
+  y: number,
+  taper?: Taper,
+): THREE.BufferGeometry {
   const positions = new Float32Array((SAMPLES + 1) * 2 * 3);
   const indices: number[] = [];
+
+  // Collapse towards whichever edge of the ribbon is nearer the centreline, so
+  // a kerb shrinks back against the carriageway rather than sliding across it.
+  // The `from` vertex must stay the `from` vertex: swapping the pair reverses
+  // the winding, and a ribbon with its normals in the ground renders perfectly
+  // and is invisible from above.
+  const anchorIsFrom = Math.abs(from) <= Math.abs(to);
 
   for (let i = 0; i <= SAMPLES; i += 1) {
     const u = i / SAMPLES;
     const centre = sampleEdge(edge, u);
     const outward = normalAt(edge, u, 1);
+    const scale = widthAt(edge, u, taper);
+    const near = anchorIsFrom ? from : to + (from - to) * scale;
+    const far = anchorIsFrom ? from + (to - from) * scale : to;
     const base = i * 6;
 
-    positions[base] = centre.x + outward.x * from;
+    positions[base] = centre.x + outward.x * near;
     positions[base + 1] = y;
-    positions[base + 2] = centre.z + outward.z * from;
+    positions[base + 2] = centre.z + outward.z * near;
 
-    positions[base + 3] = centre.x + outward.x * to;
+    positions[base + 3] = centre.x + outward.x * far;
     positions[base + 4] = y;
-    positions[base + 5] = centre.z + outward.z * to;
+    positions[base + 5] = centre.z + outward.z * far;
 
     if (i < SAMPLES) {
       const left = i * 2;
@@ -64,7 +125,12 @@ function buildRibbon(edge: GraphEdge, from: number, to: number, y: number): THRE
  * streaming past the car are most of what makes driving feel like driving, and
  * they cost one extra geometry per road.
  */
-function buildDashes(edge: GraphEdge, halfWidth: number, y: number): THREE.BufferGeometry {
+function buildDashes(
+  edge: GraphEdge,
+  halfWidth: number,
+  y: number,
+  taper?: Taper,
+): THREE.BufferGeometry {
   const positions: number[] = [];
   const indices: number[] = [];
   const period = DASH + GAP;
@@ -74,6 +140,10 @@ function buildDashes(edge: GraphEdge, halfWidth: number, y: number): THREE.Buffe
     const startU = (d * period) / edge.length;
     const endU = Math.min((d * period + DASH) / edge.length, 1);
     const steps = 4;
+
+    // A centre line has no business inside a junction, and half a dash looks
+    // worse than none: drop the whole dash rather than shortening it.
+    if (widthAt(edge, (startU + endU) / 2, taper) < 1) continue;
 
     const base = positions.length / 3;
     for (let i = 0; i <= steps; i += 1) {
@@ -165,60 +235,92 @@ export function Roads({ graph, halfWidth }: { graph: RoadGraph; halfWidth: numbe
   }, []);
   useEffect(() => () => asphalt?.dispose(), [asphalt]);
 
+  /**
+   * How long side roads hold their kerbs and verges closed for leaving a
+   * junction. Measured from the graph rather than fixed here: it is a property
+   * of how far apart the roads actually are, and a constant would quietly stop
+   * being enough the moment the content changed the spacing of the world.
+   */
+  const taperLength = useMemo(
+    () => minorRoadClearance(graph, (halfWidth + KERB_WIDTH + VERGE_WIDTH) * 2) * TAPER_MARGIN,
+    [graph, halfWidth],
+  );
+
   const ribbons = useMemo<Ribbon[]>(
     () =>
       graph.edges.flatMap((edge) => {
         const paint = surfaceFor(edge);
+
+        // Only side roads taper. A major road's markings run straight past a
+        // side turning in the real world and should here: it is the minor road
+        // that gives way, and the spine is the one thing you are always
+        // following. Two of the spine's own segments are only 46 units long,
+        // so tapering it would erase them outright.
+        const minor = edge.kind !== 'spine';
+        const taper: Taper | undefined = minor
+          ? {
+              length: taperLength,
+              atStart: graph.nodeById.get(edge.fromId)?.kind === 'junction',
+              atEnd: graph.nodeById.get(edge.toId)?.kind === 'junction',
+            }
+          : undefined;
+        const lift = minor ? -MINOR_DROP : 0;
+        const surfaceY = SURFACE_Y + lift;
+        const markingY = MARKING_Y + lift;
+
         return [
         // Verges first: they sit under everything and give the road an edge to
         // meet, instead of tarmac stopping dead against open ground.
         {
           key: `${edge.id}-verge-left`,
-          geometry: buildRibbon(edge, halfWidth + KERB_WIDTH, halfWidth + KERB_WIDTH + VERGE_WIDTH, SURFACE_Y - 0.02),
-          color: WORLD_COLORS.verge,
+          geometry: buildRibbon(edge, halfWidth + KERB_WIDTH, halfWidth + KERB_WIDTH + VERGE_WIDTH, surfaceY - 0.02, taper),
+          // Both verges take the edge's own paint. The left one was hardcoded
+          // to the default, so a detour had snow down one side and summer grass
+          // down the other.
+          color: paint.verge,
         },
         {
           key: `${edge.id}-verge-right`,
-          geometry: buildRibbon(edge, -halfWidth - KERB_WIDTH - VERGE_WIDTH, -halfWidth - KERB_WIDTH, SURFACE_Y - 0.02),
+          geometry: buildRibbon(edge, -halfWidth - KERB_WIDTH - VERGE_WIDTH, -halfWidth - KERB_WIDTH, surfaceY - 0.02, taper),
           color: paint.verge,
         },
         {
           key: `${edge.id}-surface`,
-          geometry: buildRibbon(edge, -halfWidth, halfWidth, SURFACE_Y),
+          geometry: buildRibbon(edge, -halfWidth, halfWidth, surfaceY),
           color: paint.road,
         },
         {
           key: `${edge.id}-kerb-left`,
-          geometry: buildRibbon(edge, halfWidth, halfWidth + KERB_WIDTH, MARKING_Y),
+          geometry: buildRibbon(edge, halfWidth, halfWidth + KERB_WIDTH, markingY, taper),
           color: paint.kerb,
         },
         {
           key: `${edge.id}-kerb-right`,
-          geometry: buildRibbon(edge, -halfWidth - KERB_WIDTH, -halfWidth, MARKING_Y),
+          geometry: buildRibbon(edge, -halfWidth - KERB_WIDTH, -halfWidth, markingY, taper),
           color: paint.kerb,
         },
         {
           key: `${edge.id}-edge-left`,
-          geometry: buildRibbon(edge, halfWidth - 1.5 - EDGE_LINE_WIDTH, halfWidth - 1.5, MARKING_Y),
+          geometry: buildRibbon(edge, halfWidth - 1.5 - EDGE_LINE_WIDTH, halfWidth - 1.5, markingY, taper),
           color: paint.edgeLine,
         },
         {
           key: `${edge.id}-edge-right`,
-          geometry: buildRibbon(edge, -halfWidth + 1.5, -halfWidth + 1.5 + EDGE_LINE_WIDTH, MARKING_Y),
+          geometry: buildRibbon(edge, -halfWidth + 1.5, -halfWidth + 1.5 + EDGE_LINE_WIDTH, markingY, taper),
           color: paint.edgeLine,
         },
         {
           key: `${edge.id}-centre`,
-          geometry: buildDashes(edge, CENTRE_LINE_WIDTH, MARKING_Y),
+          geometry: buildDashes(edge, CENTRE_LINE_WIDTH, markingY, taper),
           color: paint.centre,
         },
       ];
       }),
-    [graph, halfWidth],
+    [graph, halfWidth, taperLength],
   );
 
   const aprons = useMemo(() => {
-    const geometry = buildApron(halfWidth + KERB_WIDTH * 0.8, MARKING_Y + 0.02);
+    const geometry = buildApron(halfWidth + KERB_WIDTH * 1.6, MARKING_Y + 0.02);
     const nodes = graph.nodes.filter((node) => node.kind === 'junction');
     return { geometry, nodes };
   }, [graph, halfWidth]);
@@ -246,6 +348,14 @@ export function Roads({ graph, halfWidth }: { graph: RoadGraph; halfWidth: numbe
             map={key.endsWith('-surface') ? asphalt : null}
             roughness={0.95}
             metalness={0}
+            // Paint sits on tarmac. Nine centimetres of clearance is plenty at
+            // arm's length and nothing at all two hundred units down the road,
+            // where the depth buffer stops being able to tell them apart and
+            // the markings dissolve into the surface. The offset settles it in
+            // the rasteriser instead, where distance does not matter.
+            polygonOffset={!key.endsWith('-surface')}
+            polygonOffsetFactor={-2}
+            polygonOffsetUnits={-2}
           />
         </mesh>
       ))}
