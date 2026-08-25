@@ -34,6 +34,8 @@ const BACKSET = GARAGE_BACKSET;
 /** Where the doorway sits, relative to the spawn point. */
 export const GARAGE_DOOR_OFFSET = DEPTH / 2 - BACKSET;
 const HEIGHT = 11;
+/** Where the strip lights hang, and therefore where their lamps hang too. */
+const STRIP_Z = [-GARAGE_DEPTH * 0.22, GARAGE_DEPTH * 0.18] as const;
 const WALL = 0.8;
 const DOOR_HEIGHT = 7.4;
 
@@ -197,18 +199,34 @@ export function Garage({
       ) : null}
 
       {/* Strip lights, so the room reads as interior against the dusk outside. */}
-      {[-DEPTH * 0.22, DEPTH * 0.18].map((z) => (
+      {STRIP_Z.map((z) => (
         <mesh key={z} position={[0, HEIGHT - 0.7, z]}>
           <boxGeometry args={[WIDTH * 0.55, 0.22, 0.7]} />
           <meshStandardMaterial
             color="#fff3d6"
             emissive="#ffe9bd"
-            emissiveIntensity={2.4}
+            emissiveIntensity={1.4}
             toneMapped={false}
           />
         </mesh>
       ))}
-      <pointLight position={[0, HEIGHT - 1.6, 0]} intensity={900} distance={46} decay={2} color="#ffe9c4" />
+
+      {/* One lamp hung 1.6 below the ceiling threw 900 units of inverse-square
+          light at a surface 1.6 away from it, which is 350 at the ceiling
+          against 10 at the floor: the whole roof blew out to flat white and
+          took the first frame of the site with it. Two dimmer lamps, hung lower
+          and under the strips they are meant to be coming from, light the room
+          the same amount without scorching the thing directly above them. */}
+      {STRIP_Z.map((z) => (
+        <pointLight
+          key={z}
+          position={[0, HEIGHT - 2.9, z]}
+          intensity={420}
+          distance={46}
+          decay={2}
+          color="#ffe9c4"
+        />
+      ))}
     </group>
   );
 }

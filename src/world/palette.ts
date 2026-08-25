@@ -53,6 +53,14 @@ export const WORLD_COLORS = {
    */
   car: '#2b4576',
   carGlass: '#1a2130',
+  /**
+   * Tail lights. The chase camera looks at the back of this car for the entire
+   * visit and there was nothing there — one flat face of the body box, which at
+   * dusk is a dark rectangle. Lit rather than painted, so the car reads as a car
+   * from behind at the distance the camera actually sits.
+   */
+  carTail: '#c2182b',
+  carIndicator: '#d97316',
   tyre: '#15181f',
 } as const;
 

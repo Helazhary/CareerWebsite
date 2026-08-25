@@ -15,6 +15,64 @@ const WHEEL_RADIUS = 0.33;
 const WHEELBASE = 2.7;
 const TRACK = 1.65;
 const NOSE_Z = 2.2;
+/** Rear face of the body box: half of its 4.43 depth, centred on the origin. */
+const TAIL_Z = -2.215;
+
+/**
+ * The back of the car.
+ *
+ * This is the view. The chase camera sits behind the car and never leaves, so
+ * the rear face is on screen for the entire visit — and it was one flat panel
+ * of body colour, which at dusk reads as a dark box with wheels. The front got
+ * kidney grilles, a splitter and angel eyes; the end you actually look at got
+ * nothing.
+ *
+ * Lit, not painted. Unlit red at this light level is indistinguishable from
+ * dark blue, so the clusters are emissive and `toneMapped={false}` keeps them
+ * from being rolled off with the rest of the dusk exposure. They are the only
+ * saturated thing in the frame, which is what makes the car legible at the
+ * distance the camera actually sits.
+ *
+ * Banded the way the real one is: brake over indicator, split by a dark bar.
+ */
+function TailLights(): React.JSX.Element {
+  return (
+    <group>
+      {[-0.5, 0.5].map((x) => (
+        <group key={x} position={[x, 0.7, TAIL_Z - 0.02]}>
+          {/* Red is the larger and the brighter of the two. Matched in size
+              they read as amber with a red stripe, which is a hazard light. */}
+          <mesh position={[0, 0.085, 0]}>
+            <boxGeometry args={[0.62, 0.13, 0.05]} />
+            <meshStandardMaterial
+              color={WORLD_COLORS.carTail}
+              emissive={WORLD_COLORS.carTail}
+              emissiveIntensity={1.2}
+              toneMapped={false}
+            />
+          </mesh>
+          <mesh position={[0, -0.075, 0]}>
+            <boxGeometry args={[0.62, 0.07, 0.05]} />
+            <meshStandardMaterial
+              color={WORLD_COLORS.carIndicator}
+              emissive={WORLD_COLORS.carIndicator}
+              emissiveIntensity={0.7}
+              toneMapped={false}
+            />
+          </mesh>
+          {/* A real gap between the bands, filled with a dark bar that stands
+              slightly proud. Butted together the two emissives bloom into one
+              orange smear at anything past a few car lengths, and a bar drawn
+              flush in the same plane is not enough to separate them. */}
+          <mesh position={[0, -0.01, 0.012]}>
+            <boxGeometry args={[0.64, 0.06, 0.05]} />
+            <meshStandardMaterial color={WORLD_COLORS.tyre} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
 
 /** Full colour sweep, in seconds. Slow enough to notice, not to nag. */
 const RGB_CYCLE_SECONDS = 70;
@@ -118,6 +176,14 @@ export const Car = forwardRef<Group>(function Car(_props, ref): React.JSX.Elemen
         </mesh>
 
         <AngelEyes />
+        <TailLights />
+
+        {/* Boot lip, as fitted — it is in every photograph of the real car, and
+            it is the one thing that breaks up the rear roofline in silhouette. */}
+        <mesh position={[0, 0.95, TAIL_Z + 0.28]} castShadow>
+          <boxGeometry args={[1.62, 0.07, 0.42]} />
+          <meshStandardMaterial color={WORLD_COLORS.car} roughness={0.32} metalness={0.55} />
+        </mesh>
 
         {/* Gold split-spokes on the real car; the rims read even at this size. */}
         <Wheel position={[-TRACK / 2, WHEEL_RADIUS, WHEELBASE / 2]} />
