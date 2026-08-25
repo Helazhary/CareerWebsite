@@ -7,24 +7,21 @@ Read this, then `CLAUDE.md`, then `docs/DESIGN.md` §9 for the milestone plan.
 
 ## 1. Where the project stands
 
-**M0–M3 are built.** M0–M2.5 are deployed and live on helazhary.com. Everything
-after that is built and on `main` but **has not been deployed**.
+**M0–M3 are built and everything on `main` is deployed.** `main` and
+`origin/main` are level; the working tree is clean.
 
 | Milestone | State |
 | --- | --- |
 | M0 — content pipeline, doc mode, CI, hosting | live |
 | M1 — road graph, driving, camera, minimap | live |
-| M2 — skins, signs, construction sites, dusk lighting, the real car | live |
+| M2 — skins, signs, construction sites, dusk lighting, the car | live |
 | M2.5 — environment: textures, sky, hills, scenery, billboards | live |
-| M3 — project panels, `/p/<id>`, Montreal detour, fog ending | on `main`, **not deployed** |
-| Garage / intro / About / look-around | on `main`, **not deployed** |
-| Directional sunset | on `main`, **not deployed** |
-| The pyramids, moved sunward and resized | on `main`, **not deployed** |
+| M3 — project panels, `/p/<id>`, Montreal detour, fog ending | live |
+| Garage / intro / About / look-around | live |
+| Directional sunset; the pyramids | live |
+| Car tail lights; garage lighting | live |
 | M4 — real car `.glb` | not started |
 | M5 — showpiece | not started |
-
-`main` is **5 commits ahead of `origin/main`**. Working tree is clean. Nothing
-after PR #7 has been pushed.
 
 ---
 
@@ -79,7 +76,7 @@ blue over the hills. Away: a warm rim on the horizon under a night sky, warm-lit
 buildings, long shadows across the road.
 
 ---
-## 4. Bugs fixed this session, worth not re-introducing
+## 4. Bugs fixed, worth not re-introducing
 
 These cost real time and are invisible in the finished code.
 
@@ -105,6 +102,17 @@ These cost real time and are invisible in the finished code.
   must reflect rather than clamp.
 - **Test final positions, not intermediate data.** The highway once rendered
   out of chronological order while its anchors were perfectly correct.
+- **A dark silhouette needs a light background.** The pyramids were placed
+  opposite the sun, where the sky is nearly their own value. Two of the three
+  were also shorter than the ridge in front of them, so they were not merely
+  hard to see, they were not on screen from anywhere.
+- **An emissive fixture is not the same as the light coming off it.** The
+  garage lamp hung 1.6 below the ceiling at intensity 900 with decay 2, which
+  is 350 at the ceiling against 10 at the floor. Hang lamps low, or the surface
+  nearest them blows out.
+- **The chase camera never leaves the back of the car.** Detail on the front is
+  detail nobody sees. Tail lights did more for the car reading as a car than
+  everything on the nose put together.
 
 ---
 
@@ -129,9 +137,28 @@ These cost real time and are invisible in the finished code.
   `project-car` declares `'toolbox'` and `'car-lift'` in their `ambient`
   arrays. Unknown ids are ignored safely, so this is harmless — but it is a
   schema field doing nothing.
-- **`npm run dev:preview` was the running server** for most of the session.
-  Remember it fills empty galleries with placeholder cards. Use plain
-  `npm run dev` to see the site as it actually ships.
+- **`layoutPlots` displaces buildings and leaves their anchors behind.** It
+  pushes plots apart to stop them overlapping and never moves the entry's road
+  anchor to follow. Most entries sit 28 units from their own building; the
+  displaced ones sit at 34–52. Two are far enough out that a *neighbour's*
+  building is closer to their anchor than their own — `transformer-cnn-study`
+  (own 34.7, chess-digitization 28.0) and `agentic-dev-pipelines` (own 35.2,
+  telegram-bot 32.9).
+
+  The visible symptom today is small: deep-linking to `/p/transformer-cnn-study/`
+  opens the right panel, but closing it leaves "Real-Life Chess Digitization" on
+  the prompt. Every building is still reachable by driving — that is now
+  asserted in `tests/world-proximity.test.ts`, so if a future layout change
+  strands one, it fails loudly instead of silently.
+
+  The proper fix is in the pure layer: either cap the displacement, or move the
+  anchor with the plot so "arrive at this building" means the point of road
+  beside where the building actually ended up. Weighting `nearestPlot` by
+  alignment does **not** work — the margin is 19.7 against 13.0 in effective
+  distance, and the weighting needed to close that would let a building 40 units
+  ahead beat one 15 units beside you.
+- **`npm run dev:preview` fills empty galleries with placeholder cards.** Use
+  plain `npm run dev` to see the site as it actually ships.
 
 ---
 
