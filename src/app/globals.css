@@ -20,11 +20,106 @@ body {
   color: var(--color-text);
 }
 
+/*
+ * The transit map.
+ *
+ * Colours are per-district and arrive as a `--tint` custom property set on each
+ * stop, so this stylesheet never learns a district name and adding one needs no
+ * edit here. The lit states are toggled by class from an animation frame in
+ * Minimap.tsx rather than through React, because two class names on two
+ * elements is not worth re-rendering an overlay for.
+ */
+.transit-halo {
+  fill: var(--color-accent);
+  opacity: 0;
+  transition: opacity 160ms ease-out;
+}
+
+.transit-dot {
+  fill: var(--color-surface);
+  stroke: var(--tint);
+  stroke-width: 4;
+  transition: fill 160ms ease-out, fill-opacity 160ms ease-out;
+}
+
+.transit-label {
+  fill: var(--color-muted);
+  transition: fill 160ms ease-out;
+}
+
+.transit-stop:hover .transit-dot { fill: var(--tint); }
+.transit-stop:hover .transit-label { fill: var(--color-text); }
+
+/* Where you are: filled solid, with a soft halo behind it. */
+.transit-stop.is-at .transit-dot {
+  fill: var(--color-accent);
+  stroke: var(--color-accent);
+}
+.transit-stop.is-at .transit-halo { opacity: 0.28; }
+.transit-stop.is-at .transit-label {
+  fill: var(--color-text);
+  font-weight: 600;
+}
+
+/* Where you are going: the same colour, said more quietly. */
+.transit-stop.is-next .transit-dot {
+  fill: var(--color-accent);
+  fill-opacity: 0.45;
+  stroke: var(--color-accent);
+  stroke-opacity: 0.6;
+}
+.transit-stop.is-next .transit-label { fill: var(--color-text); }
+
+/*
+ * The road-name flash. Up briefly, gone without being dismissed.
+ *
+ * The hold is a timer in RoadName.tsx, not a keyframe, so the reduced-motion
+ * rule below can flatten this to nothing and still leave the label readable.
+ */
+@keyframes road-name {
+  0%   { opacity: 0; transform: translateY(-6px); }
+  12%  { opacity: 1; transform: translateY(0); }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* The same reveal with the movement taken out. See the override below. */
+@keyframes road-name-still {
+  0%   { opacity: 0; }
+  12%  { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.road-name {
+  animation: road-name 2.4s ease-out forwards;
+}
+
+/* Held at the first frame while the intro card or a panel is up. */
+.road-name.is-held {
+  animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/*
+ * Reduced motion means no *movement*, not no message.
+ *
+ * The blanket rule above collapses every animation to 0.01ms, which for the
+ * road-name flash means it is never seen at all — the animation is the only
+ * thing holding it on screen. This puts the duration back and drops the slide,
+ * which is the part anyone asking for reduced motion was asking to lose.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .road-name {
+    animation: road-name-still 2.4s ease-out forwards !important;
+    animation-duration: 2.4s !important;
   }
 }
 

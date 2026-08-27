@@ -9,6 +9,7 @@ import { DriveHud } from '@/ui/DriveHud';
 import { IntroOverlay } from '@/ui/IntroOverlay';
 import { Minimap } from '@/ui/Minimap';
 import { ProjectPanel } from '@/ui/ProjectPanel';
+import { RoadName } from '@/ui/RoadName';
 import { type DriveState, initialDriveState, stateAtAnchor } from './drive';
 import { Scene, type HudState } from './Scene';
 import { useDriveInput } from './useDriveInput';
@@ -98,6 +99,8 @@ export default function WorldCanvas({
         panelOpen={openEntry !== undefined || aboutOpen}
         controlsHidden={showControls}
       />
+
+      <RoadName district={hud?.roadDistrict ?? null} hidden={paused} />
 
       <Minimap
         open={mapOpen}

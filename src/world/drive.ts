@@ -36,6 +36,14 @@ export interface DriveState {
   readonly targetNodeId: string;
   /** Index into `branchOptions`, chosen by the viewer. */
   readonly choice: number;
+  /**
+   * Seconds left of a U-turn. Zero for all but the moment after a flip.
+   *
+   * The car's graph state flips instantly — it must, or its position on the
+   * spline stops being exact — but the *heading you see* sweeps round over this
+   * countdown, and input is locked until it reaches zero. See `flipAround`.
+   */
+  readonly turning: number;
 }
 
 export interface DriveInput {
@@ -79,12 +87,54 @@ function clamp(value: number, low: number, high: number): number {
   return Math.min(Math.max(value, low), high);
 }
 
+/**
+ * How long a U-turn takes.
+ *
+ * Long enough to read as a manoeuvre, short enough that nobody waits for it.
+ * Input is locked for exactly this long, so it is also how long the viewer is
+ * not in control — which is the reason it is not a second and a half.
+ */
+export const TURN_SECONDS = 0.8;
+
+/**
+ * The most simulated time one frame may advance.
+ *
+ * A frame longer than this is a tab that was backgrounded, not a slow frame.
+ * **Everything that animates has to use the same clamp**, or they come apart on
+ * a slow machine: the U-turn countdown is clamped and the camera's damping was
+ * not, so at ten frames a second the camera finished its 180° swing in three
+ * frames while the turn still had six-tenths of a second to run. It looked
+ * exactly like the cut this was built to replace.
+ */
+export const MAX_FRAME_SECONDS = 0.05;
+
 /** Unit heading of the car, in world space. */
 export function headingOf(graph: RoadGraph, state: DriveState): Vec2 {
   const edge = graph.edgeById.get(state.edgeId);
   if (edge === undefined) return { x: 1, z: 0 };
   const tangent = tangentAt(edge, state.u);
   return { x: tangent.x * state.direction, z: tangent.z * state.direction };
+}
+
+/**
+ * Heading as the camera and the car body should *show* it.
+ *
+ * Mid-U-turn this sweeps from the old heading to the new one; the rest of the
+ * time it is exactly `headingOf`. Everything that reasons about the graph —
+ * proximity, junctions, the map's sense of where you are going — uses
+ * `headingOf`, because the flip is instantaneous as far as the road network is
+ * concerned. Only the presentation lags behind it.
+ */
+export function visualHeadingOf(graph: RoadGraph, state: DriveState): Vec2 {
+  const heading = headingOf(graph, state);
+  if (state.turning <= 0) return heading;
+
+  // At `turning === TURN_SECONDS` this is a half turn, which lands exactly on
+  // the heading the car had before the flip. At zero it is the identity.
+  const angle = (Math.min(state.turning, TURN_SECONDS) / TURN_SECONDS) * Math.PI;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  return { x: heading.x * cos - heading.z * sin, z: heading.x * sin + heading.z * cos };
 }
 
 /** World position of the car. */
@@ -152,6 +202,14 @@ export function straightAheadIndex(options: readonly BranchOption[]): number {
  *
  * Speed drops to zero so a flip at pace is a stop and a turn, not a lurch
  * backwards at 90 units a second.
+ *
+ * The direction change is instantaneous and stays that way: the car's place on
+ * the spline has to be exact every frame or the invariants in this file stop
+ * meaning anything. What was abrupt was never the model — it was that the
+ * camera read the new heading on the very next frame and cut to the far side of
+ * the car. `turning` gives the presentation something to interpolate over, and
+ * locks input while it does, so a flip is a manoeuvre you watch rather than a
+ * jump you notice.
  */
 export function flipAround(graph: RoadGraph, state: DriveState): DriveState {
   const edge = graph.edgeById.get(state.edgeId);
@@ -164,6 +222,7 @@ export function flipAround(graph: RoadGraph, state: DriveState): DriveState {
     speed: 0,
     targetNodeId: direction > 0 ? edge.toId : edge.fromId,
     choice: 0,
+    turning: TURN_SECONDS,
   };
   // The junction ahead is a different junction now, so the default branch has
   // to be recomputed or the car inherits a choice meant for the other end.
@@ -188,6 +247,7 @@ export function initialDriveState(graph: RoadGraph): DriveState {
     speed: 0,
     targetNodeId: forward ? edge.toId : edge.fromId,
     choice: 0,
+    turning: 0,
   };
 
   // Index 0 is the *leftmost* branch, not the straight-ahead one. Without this
@@ -214,6 +274,7 @@ export function stateAtAnchor(graph: RoadGraph, anchor: RoadAnchor): DriveState 
     speed: 0,
     targetNodeId: edge.toId,
     choice: 0,
+    turning: 0,
   };
   return { ...arrived, choice: straightAheadIndex(branchOptions(graph, arrived)) };
 }
@@ -239,18 +300,27 @@ export function step(
   const edge = graph.edgeById.get(state.edgeId);
   if (edge === undefined || dt <= 0) return state;
 
-  const target = input.throttle ? options.maxSpeed : 0;
-  const rate = input.throttle ? options.acceleration : options.deceleration;
+  // Mid-U-turn the viewer is a passenger: no throttle, no steering, and no
+  // second flip to cancel the first. The countdown is the only thing running.
+  const midTurn = state.turning > 0;
+  const turning = Math.max(0, state.turning - dt);
+
+  const throttle = midTurn ? false : input.throttle;
+  const target = throttle ? options.maxSpeed : 0;
+  const rate = throttle ? options.acceleration : options.deceleration;
   const speed = approach(state.speed, target, rate * dt);
 
-  let current: DriveState = input.flip ? flipAround(graph, state) : { ...state, speed };
+  let current: DriveState =
+    !midTurn && input.flip ? flipAround(graph, state) : { ...state, speed, turning };
 
-  if (input.steer !== 0) {
+  if (!midTurn && input.steer !== 0) {
     const available = branchOptions(graph, current);
     current = { ...current, choice: clamp(current.choice + input.steer, 0, available.length - 1) };
   }
 
-  let remaining = speed * dt;
+  // Read from the state rather than the local: a flip zeroes the speed, and
+  // taking the pre-flip value here moved the car a frame *after* stopping it.
+  let remaining = current.speed * dt;
   let transitions = 0;
 
   while (remaining > 0 && transitions < MAX_TRANSITIONS_PER_STEP) {
@@ -296,6 +366,7 @@ export function step(
       speed: current.speed,
       targetNodeId: nextTarget,
       choice: 0,
+      turning: current.turning,
     };
 
     // Reset the choice to "straight on" for the junction now ahead.

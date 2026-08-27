@@ -10,6 +10,7 @@ import { entries } from '@content/registry';
 import { buildRoadGraph } from './graph';
 import { anchorsForPlots, layoutPlots } from './layout';
 import { scatterLamps, scatterScenery } from './scatter';
+import { buildTransitDiagram } from './transit';
 
 export const worldGraph = buildRoadGraph(entries);
 export const worldPlots = layoutPlots(worldGraph, entries);
@@ -21,5 +22,13 @@ export const worldPlots = layoutPlots(worldGraph, entries);
  * works from; they are just not where the buildings ended up.
  */
 export const worldAnchorByEntryId = anchorsForPlots(worldPlots);
+/**
+ * The map, as a transit diagram rather than a tracing of the roads.
+ *
+ * Built from the laid-out plots for the same reason `worldAnchorByEntryId` is:
+ * the diagram has to show the order the buildings ended up in, not the order
+ * they asked for.
+ */
+export const worldTransit = buildTransitDiagram(worldGraph, worldPlots);
 export const worldScenery = scatterScenery(worldGraph, worldPlots);
 export const worldLamps = scatterLamps(worldGraph);

@@ -32,10 +32,10 @@ Contributor guide: `HOWTO.md`.
    enters the doc-mode bundle. Verify against `out/`, not by reasoning: no chunk
    referenced by `index.html` may contain `WebGLRenderer`.
 4. **The pure layer stays pure.** `graph.ts`, `layout.ts`, `drive.ts`,
-   `scatter.ts` and `signText.ts` have no Three.js, React or DOM imports. They
-   are plain functions with unit tests, and every geometric invariant lives
-   there — buildings never overlap, nothing grows in the road, the car can never
-   leave the graph.
+   `scatter.ts`, `signText.ts` and `transit.ts` have no Three.js, React or DOM
+   imports. They are plain functions with unit tests, and every geometric
+   invariant lives there — buildings never overlap, nothing grows in the road,
+   the car can never leave the graph, the map shows the order the world has.
 5. **Never invent content.** No dates, links, metrics or specifications that
    Hussein did not supply, not even as filler. Preview mode exists for that;
    see below. **Dates were confirmed entry by entry on 2026-08-27 and are
@@ -68,9 +68,11 @@ before touching `src/world/`.
 
 ## Current state
 
-**Everything built is deployed and live on helazhary.com.** M4 (the real car
-`.glb`) and M5 (a showpiece) remain, and **M4 is blocked**: there is no model in
-the repo and it needs a decision from Hussein before anyone starts it.
+**Everything built before 2026-08-27 is deployed and live on helazhary.com.**
+The legibility pass listed below is committed but unverified in a browser and
+undeployed. M4 (the real car `.glb`) and M5 (a showpiece) remain; **M4 is
+parked** — Hussein is keeping the primitives car for now, and it still needs a
+decision from him before anyone starts it.
 
 - **M0** — content pipeline, doc mode, CI, hosting.
 - **M1** — the world: road graph, plot layout, spline driving, junctions,
@@ -88,6 +90,12 @@ the repo and it needs a decision from Hussein before anyone starts it.
   derived from where buildings actually landed; side roads that taper out of a
   junction instead of stitching against the spine; and dates confirmed by
   Hussein, including year-only and hidden ones.
+- **Legibility pass (2026-08-27)** — the map redrawn as a transit diagram with a
+  lit "you are here" and a softer "next stop"; a chase camera that orbits the
+  car instead of swivelling in place; a U-turn that arcs over 0.8s with input
+  locked; the road's name flashed briefly on entering a new district; and the
+  pyramids and desert brought close enough to be part of the world. **None of
+  this has been seen in a browser yet** — see `docs/HANDOFF.md` §1.
 
 See `docs/DESIGN.md` §9 for the full plan.
 
@@ -100,6 +108,7 @@ src/world/
   drive.ts        pure  the car's state machine; junction choice is the only input
   scatter.ts      pure  where trees, rocks and lamps stand
   signText.ts     pure  how a title is wrapped and sized to fit a sign
+  transit.ts      pure  the world as a subway diagram; which stop is next
   skins/          the kit: one skin per schema `skin` value, plus shared parts
   skins/ambient   one prop per schema `ambient` id; unknown ids ignored
   *.tsx           the React Three Fiber layer
@@ -138,6 +147,13 @@ Kept because they cost real time and are invisible in the code.
   test asserting on anchors passed straight through the bug.
 - **Anything spaced with `floor(length / spacing)` skips short segments
   entirely.** Street lamps missed exactly the stretches next to junctions.
+- **Damp the angle, not the position.** A camera swinging round the car by
+  lerping its position takes the chord and flies through the car. Damp the
+  azimuth and place the camera on the circle.
+- **A hidden browser pane freezes the animation clock.** No frames, no canvas
+  sizing, and every `getComputedStyle` read of a transitioned property returns
+  the pre-change value forever — which looks exactly like CSS that is not
+  matching. Read an untransitioned property to tell the two apart.
 - **Lint rules about render-time mutation are right.** Components created during
   render remount; effects that setState synchronously cascade. Use
   `useSyncExternalStore` for probes, and mutate input buffers in the module that

@@ -8,8 +8,9 @@ paths:
 
 ## The pure layer
 
-`graph.ts`, `layout.ts`, `drive.ts`, `scatter.ts` and `signText.ts` import
-nothing from `three`, `@react-three/*`, `react`, or anything touching the DOM.
+`graph.ts`, `layout.ts`, `drive.ts`, `scatter.ts`, `signText.ts` and
+`transit.ts` import nothing from `three`, `@react-three/*`, `react`, or
+anything touching the DOM.
 They take content entries and return plain data, and they are unit tested in
 `tests/`.
 
@@ -23,6 +24,8 @@ things that break silently and are invisible until someone drives past them:
 - arriving at a project puts you at *that* project, not at its neighbour
 - a detour never opens across an off-ramp on the side it bows to
 - a title always fits its sign
+- the map shows every entry exactly once, in the order the world has
+- the stop the map says is next is one the car is actually about to reach
 
 All of these are covered in `tests/`. When one breaks, add the regression test
 at the same time as the fix — and **negative-check it**: break the thing it
@@ -63,6 +66,20 @@ and handing a component back from a map remounts it every render.
 Constrained to a spline. No physics, no free steering, no collision. Junction
 choice is the only navigation input, and **straight on is always the default** —
 holding forward must drive the whole highway without a single decision.
+
+A U-turn flips the graph state instantly and always will: the car's place on
+the spline has to be exact every frame or nothing else in `drive.ts` means
+anything. What is animated is `visualHeadingOf`, which sweeps over
+`TURN_SECONDS` while input is locked. **Presentation reads `visualHeadingOf`;
+anything reasoning about the road reads `headingOf`.** Mixing them up puts the
+proximity prompt half a turn out for the length of a manoeuvre.
+
+## The camera
+
+It orbits the car outdoors and swivels in place indoors, and the split is not
+negotiable: a room is smaller than the chase radius, so orbiting inside the
+garage puts the camera through a wall. Elevation is clamped at both ends —
+"I got stuck looking at the sky" is a class of bug, not a preference.
 
 ## Performance
 

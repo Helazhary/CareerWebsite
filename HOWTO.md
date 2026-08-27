@@ -148,6 +148,26 @@ you already put in a job application. If you must, change the filename and the
 
 **Remove** — delete the file, delete its media folder, run `npm run content:sync`.
 
+**Regroup** — change an entry's `district` and it moves to that off-ramp, with
+its building, its sign, its place on the map and its stop on the transit
+diagram. This is the supported way to group similar work together, and it is a
+content edit: nothing in `src/` needs to change.
+
+What it does *not* change is the main highway. That is chronological on purpose
+— driving straight down it reads like the resume — and it holds the jobs and
+degrees. The districts hold everything else, and they are grouped by theme
+already. So "group my similar projects together" is usually districts, and
+usually free.
+
+If you want a district that does not exist yet, or you want the highway itself
+to stop being a timeline, that is a code change. `docs/HANDOFF.md` §3 has the
+three options written out, cheapest first, with the trade-off spelled out for
+the one that changes what the world means. Point Claude at it.
+
+**Always run `npm run check` after moving an entry between districts.** The
+world is laid out from content, so this genuinely relays roads — and it has
+broken things two districts away before now.
+
 ---
 
 ## 6. Change how it looks
@@ -193,6 +213,18 @@ pieces — shells, plinths, roofs, roll-up doors, lit window bands.
 **Trees, rocks and street lamps** are placed by `src/world/scatter.ts` from a
 fixed seed, so the world looks the same on every build. Change the seed and you
 get a different but equally valid world.
+
+**The map draws itself.** Press `M` and you get a subway-style diagram: one line
+per district, a stop per entry, the stop you are at lit and the one you are
+heading for shown more quietly. It is built by `src/world/transit.ts` from the
+road graph and the laid-out buildings, so adding an entry or moving one to a
+different district redraws it with no edit anywhere. If a long title ever looks
+cramped, `ROW` in that file is the spacing between lines.
+
+**The road's name flashes** in white at the top for a couple of seconds when you
+turn onto a road in a new district. The names come from `DISTRICT_LABELS` in
+`src/lib/site.ts` — rename a district there and the flash, the map and the
+junction prompt all follow.
 
 ---
 

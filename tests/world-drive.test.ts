@@ -12,6 +12,8 @@ import {
   positionOf,
   step,
   straightAheadIndex,
+  TURN_SECONDS,
+  visualHeadingOf,
 } from '@/world/drive';
 
 const graph = buildRoadGraph(entries);
@@ -160,6 +162,7 @@ describe('junctions', () => {
       speed: 0,
       targetNodeId: spur.toId,
       choice: 0,
+      turning: 0,
     };
     const options = branchOptions(graph, atEnd);
     expect(options).toHaveLength(1);
@@ -232,9 +235,96 @@ describe('turning around', () => {
     if (spur === undefined) return;
     const atEnd: DriveState = {
       edgeId: spur.id, u: 0.99, direction: 1, speed: 0,
-      targetNodeId: spur.toId, choice: 0,
+      targetNodeId: spur.toId, choice: 0, turning: 0,
     };
     assertOnTheRoad(flipAround(graph, atEnd));
+  });
+});
+
+describe('the U-turn is a manoeuvre, not a cut', () => {
+  const FLIP: DriveInput = { throttle: false, steer: 0, flip: true };
+
+  /** Signed angle between two unit vectors, in radians. */
+  function angleBetween(a: { x: number; z: number }, b: { x: number; z: number }): number {
+    return Math.abs(Math.atan2(a.x * b.z - a.z * b.x, a.x * b.x + a.z * b.z));
+  }
+
+  it('starts a timed turn rather than finishing instantly', () => {
+    const rolling = drive(initialDriveState(graph), HOLD, 2);
+    const turned = step(graph, rolling, FLIP, FRAME);
+    expect(turned.turning).toBeGreaterThan(0);
+    expect(turned.turning).toBeCloseTo(TURN_SECONDS, 6);
+  });
+
+  it('shows the old heading at the start of the turn and the new one at the end', () => {
+    const rolling = drive(initialDriveState(graph), HOLD, 2);
+    const before = headingOf(graph, rolling);
+    const turned = step(graph, rolling, FLIP, FRAME);
+
+    // The graph has already flipped — that part must stay instantaneous.
+    expect(angleBetween(headingOf(graph, turned), before)).toBeCloseTo(Math.PI, 3);
+    // What the camera sees has not moved yet.
+    expect(angleBetween(visualHeadingOf(graph, turned), before)).toBeLessThan(0.1);
+
+    const settled = drive(turned, COAST, TURN_SECONDS + 0.1);
+    expect(settled.turning).toBe(0);
+    expect(angleBetween(visualHeadingOf(graph, settled), headingOf(graph, settled))).toBe(0);
+  });
+
+  it('sweeps through the halfway heading instead of jumping past it', () => {
+    const rolling = drive(initialDriveState(graph), HOLD, 2);
+    const before = headingOf(graph, rolling);
+    let state = step(graph, rolling, FLIP, FRAME);
+
+    // Half the turn elapsed should be a quarter turn of the visible heading,
+    // and it must be a real intermediate angle: a cut would only ever show 0
+    // or pi, never anything between.
+    state = drive(state, COAST, TURN_SECONDS / 2);
+    const swept = angleBetween(visualHeadingOf(graph, state), before);
+    expect(swept).toBeGreaterThan(0.2);
+    expect(swept).toBeLessThan(Math.PI - 0.2);
+  });
+
+  it('always reports a unit heading, mid-turn included', () => {
+    let state = step(graph, drive(initialDriveState(graph), HOLD, 2), FLIP, FRAME);
+    for (let t = 0; t < TURN_SECONDS + 0.2; t += FRAME) {
+      const heading = visualHeadingOf(graph, state);
+      expect(Math.hypot(heading.x, heading.z)).toBeCloseTo(1, 6);
+      state = step(graph, state, COAST, FRAME);
+    }
+  });
+
+  it('locks input until the turn is over', () => {
+    const rolling = drive(initialDriveState(graph), HOLD, 2);
+    const turned = step(graph, rolling, FLIP, FRAME);
+    const parked = positionOf(graph, turned);
+
+    // Throttle held down for most of the turn moves the car nowhere.
+    const held = drive(turned, HOLD, TURN_SECONDS * 0.75);
+    expect(held.speed).toBe(0);
+    expect(Math.hypot(positionOf(graph, held).x - parked.x, positionOf(graph, held).z - parked.z))
+      .toBeLessThan(1e-6);
+
+    // And the same throttle works again the moment the turn finishes.
+    const released = drive(held, HOLD, 0.5);
+    expect(released.speed).toBeGreaterThan(0);
+  });
+
+  it('ignores a second flip during the first', () => {
+    const rolling = drive(initialDriveState(graph), HOLD, 2);
+    const turned = step(graph, rolling, FLIP, FRAME);
+    const again = step(graph, turned, FLIP, FRAME);
+    // Cancelling a U-turn halfway would leave the car facing the way it
+    // started with the camera mid-sweep, which is the glitch this replaced.
+    expect(again.direction).toBe(turned.direction);
+    expect(again.turning).toBeLessThan(turned.turning);
+  });
+
+  it('ignores steering during the turn', () => {
+    const approaching = drive(initialDriveState(graph), HOLD, 2);
+    const turned = step(graph, approaching, FLIP, FRAME);
+    const steered = step(graph, turned, { throttle: false, steer: 1, flip: false }, FRAME);
+    expect(steered.choice).toBe(turned.choice);
   });
 });
 

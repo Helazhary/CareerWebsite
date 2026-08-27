@@ -159,6 +159,7 @@ describe('nearestPlot', () => {
             speed: 0,
             targetNodeId: edge.toId,
             choice: 0,
+            turning: 0,
           };
           const near = nearestPlot(positionOf(graph, state), headingOf(graph, state), plots);
           if (near?.entryId !== undefined) offered.add(near.entryId);

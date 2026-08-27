@@ -4,7 +4,16 @@ import { useFrame } from '@react-three/fiber';
 import { useCallback, useRef } from 'react';
 import type { Group } from 'three';
 import { DEFAULT_LAYOUT_OPTIONS } from './layout';
-import { DEFAULT_DRIVE_OPTIONS, type DriveState, branchOptions, headingOf, positionOf, step } from './drive';
+import {
+  DEFAULT_DRIVE_OPTIONS,
+  type DriveState,
+  MAX_FRAME_SECONDS,
+  branchOptions,
+  headingOf,
+  positionOf,
+  step,
+  visualHeadingOf,
+} from './drive';
 import { type InputBuffer, consumeFlip, consumeSteer } from './useDriveInput';
 import { worldGraph, worldLamps, worldPlots, worldScenery } from './world';
 import { WORLD_COLORS } from './palette';
@@ -31,6 +40,8 @@ export interface HudState {
   readonly distanceToJunction: number;
   /** The building the car is at, if any. */
   readonly nearbyEntryId: string | null;
+  /** District of the road under the car. Drives the road-name flash. */
+  readonly roadDistrict: string | null;
 }
 
 /**
@@ -41,9 +52,6 @@ export interface HudState {
  * speed: long enough to read and decide, short enough to be about this junction.
  */
 const PROMPT_DISTANCE = 170;
-
-/** A frame longer than this is a tab that was backgrounded, not a slow frame. */
-const MAX_FRAME_SECONDS = 0.05;
 
 /**
  * How fast the car's body catches up to the direction it is travelling.
@@ -133,7 +141,9 @@ export function Scene({
       const approaching = remaining < PROMPT_DISTANCE;
       const signature = `${state.targetNodeId}|${state.choice}|${branches
         .map((b) => b.edgeId)
-        .join(',')}|${approaching}|${nearby?.entryId ?? ''}|${Math.round(state.speed / 10)}`;
+        .join(',')}|${approaching}|${nearby?.entryId ?? ''}|${Math.round(state.speed / 10)}|${
+        edge?.district ?? ''
+      }`;
       if (signature === lastHud.current) return;
       lastHud.current = signature;
 
@@ -144,12 +154,16 @@ export function Scene({
         speed: state.speed,
         distanceToJunction: approaching ? remaining : Number.POSITIVE_INFINITY,
         nearbyEntryId: nearby?.entryId ?? null,
+        roadDistrict: edge?.district ?? null,
       });
     },
     [onHud],
   );
 
   useFrame((_, delta) => {
+    // One clamp for the whole frame. The car's simulated time and the body's
+    // interpolation have to agree about how long this frame was.
+    const dt = Math.min(delta, MAX_FRAME_SECONDS);
     const inside = insideRef.current;
     const next = step(
       worldGraph,
@@ -161,7 +175,7 @@ export function Scene({
         steer: paused ? 0 : consumeSteer(input.current),
         flip: paused ? false : consumeFlip(input.current),
       },
-      Math.min(delta, MAX_FRAME_SECONDS),
+      dt,
       // Held to a crawl indoors, so leaving is a manoeuvre rather than a
       // launch. Without this you arrive on the highway at full speed.
       inside ? { ...DEFAULT_DRIVE_OPTIONS, maxSpeed: GARAGE_SPEED } : DEFAULT_DRIVE_OPTIONS,
@@ -176,7 +190,9 @@ export function Scene({
     const car = carRef.current;
     if (car !== null) {
       const position = positionOf(worldGraph, next);
-      const heading = headingOf(worldGraph, next);
+      // The heading as shown, not as the graph has it: mid-U-turn the two are
+      // up to half a turn apart, and the body follows the one the camera does.
+      const heading = visualHeadingOf(worldGraph, next);
       car.position.set(position.x, 0, position.z);
 
       const target = Math.atan2(heading.x, heading.z);
@@ -187,7 +203,7 @@ export function Scene({
         bodyYaw.current =
           Math.abs(difference) < YAW_SETTLED
             ? target
-            : bodyYaw.current + difference * (1 - Math.exp(-YAW_DAMPING * delta));
+            : bodyYaw.current + difference * (1 - Math.exp(-YAW_DAMPING * dt));
       }
       car.rotation.y = bodyYaw.current;
 

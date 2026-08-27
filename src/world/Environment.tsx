@@ -209,8 +209,9 @@ function Horizon(): React.JSX.Element {
  * Desert, laid over the grass and faded in with distance.
  *
  * Cairo is where this career happened, and the pyramids are the thing you can
- * see from the edge of it. Placed far out and unfogged so they read as
- * genuinely distant rather than as scenery you could drive to.
+ * see from the edge of it. Unfogged, like the ridge, so they stay a clean
+ * silhouette instead of being washed halfway to the fog colour — which is what
+ * would happen to anything else standing where they now stand.
  */
 function Desert(): React.JSX.Element | null {
   const sand = useMemo(() => {
@@ -218,11 +219,18 @@ function Desert(): React.JSX.Element | null {
     if (map !== null) map.repeat.set(GROUND_SIZE / 90, GROUND_SIZE / 90);
     return map;
   }, []);
-  // Fractions of the plane, which is 7000 across. Grass holds for roughly 700
-  // units — well past every road — then gives way to sand by about 1500, which
-  // is inside the fog distance and therefore actually visible. The defaults
-  // put the transition 2100 units out, where nothing can be seen.
-  const mask = useMemo(() => makeDesertMask(256, 0.1, 0.22), []);
+  // Fractions of the plane, which is 7000 across. Grass holds for roughly 525
+  // units, then gives way to sand by about 1120 — comfortably inside the 1450
+  // fog distance, so the desert is something you drive *through* rather than
+  // something you approach. The defaults put the transition 2100 units out,
+  // where nothing can be seen at all; the first pass at this pulled it to
+  // 700–1500, which still left the far end of the highway on green.
+  //
+  // The lower bound is the one to be careful with: the plane is centred at
+  // x=350, near the middle of a world that runs to about x=1300, so dropping
+  // the clear radius much below 500 starts putting sand under the buildings
+  // themselves and the green heart of the map stops reading as a contrast.
+  const mask = useMemo(() => makeDesertMask(256, 0.075, 0.16), []);
 
   useEffect(
     () => () => {
@@ -278,22 +286,40 @@ function placeBySun(degreesOffSun: number, distance: number): { x: number; z: nu
  * the real thing.
  */
 const BASE_TO_HEIGHT = 1.13;
-/** Sunk slightly, so the bases meet the ridge instead of hovering over it. */
+/**
+ * Sunk slightly, so the bases sit in the ground rather than hovering over it.
+ *
+ * This used to be about meeting the ridge line. In front of the ridge it is
+ * about meeting the desert, and it happens to be the same number: the group
+ * rides with the camera while the ground does not, so a base above y=0 would
+ * skim across the sand as you drive.
+ */
 const BURIED = 14;
 
 function Pyramids(): React.JSX.Element {
   const shapes = useMemo(
     () =>
-      // Each height is set against the ridge at that particular bearing, which
-      // runs between 2.5° and 4.5° of elevation across this window. The large
-      // pair stand 7° and 6.3° up, the small one 4°. Anything shorter than the
-      // ridge beneath it is simply not in the scene however carefully it is
-      // placed, which is what happened to two of the previous three — so the
-      // small one takes the bearing where the ridge runs lowest.
+      // Brought in from about 2000 units to about 1200, which is where they
+      // stand now. Nothing about the shapes changed — the distance is the whole
+      // edit, and it is worth roughly 1.7x their apparent size: the large pair
+      // subtend 11.7° and 10.5° where they used to manage 7.1° and 6.3°.
+      //
+      // 1200 is not arbitrary. It has to clear the ridge, which is a wall at
+      // radius 1750 — anything beyond that is *behind* the skyline and gets
+      // occluded rather than silhouetted. It also has to stay far enough out
+      // that riding with the camera still passes for a backdrop; nearer than
+      // about a thousand and the lack of parallax against the streaming ground
+      // starts to show.
+      //
+      // Each height was set against the ridge at that particular bearing, which
+      // runs between 2.5° and 4.5° of elevation across this window. Anything
+      // shorter than the ridge beneath it is simply not in the scene however
+      // carefully it is placed, which is what happened to two of the previous
+      // three — so the small one takes the bearing where the ridge runs lowest.
       [
-        { ...placeBySun(3, 1950), height: 150 },
-        { ...placeBySun(9, 2000), height: 262 },
-        { ...placeBySun(17, 2150), height: 252 },
+        { ...placeBySun(3, 1150), height: 150 },
+        { ...placeBySun(9, 1200), height: 262 },
+        { ...placeBySun(17, 1280), height: 252 },
       ] as const,
     [],
   );
