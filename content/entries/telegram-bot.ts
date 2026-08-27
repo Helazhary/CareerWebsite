@@ -4,8 +4,7 @@ const entry: EntryInput = {
   id: 'telegram-bot',
   kind: 'project',
   title: 'Modular Telegram Automation Bot',
-  // TODO(hussein): dates are ESTIMATED — the resume lists no project dates. Verify before publishing.
-  start: '2025-01',
+  start: '2026',
   district: 'agents',
   skin: 'server-room',
   size: 'md',

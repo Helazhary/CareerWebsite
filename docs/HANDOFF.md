@@ -23,6 +23,7 @@ Read this, then `CLAUDE.md`, then `docs/DESIGN.md` §9 for the milestone plan.
 | Navigation anchors derived from laid-out plots | live |
 | Ambient props | live |
 | Junction rendering: tapered side roads | live |
+| Confirmed dates; year-only and hidden dates | live |
 | M4 — real car `.glb` | not started |
 | M5 — showpiece | not started |
 
@@ -105,6 +106,20 @@ These cost real time and are invisible in the finished code.
   must reflect rather than clamp.
 - **Test final positions, not intermediate data.** The highway once rendered
   out of chronological order while its anchors were perfectly correct.
+- **A hidden date still has to exist.** The highway *is* chronology, and a
+  district's off-ramp leaves the spine at the date its work began — so an entry
+  with no date cannot be placed, and The Arcade, whose only member is one of the
+  hidden ones, would have slid from 2022 to the far end of the map for want of
+  one number nobody sees. `hideDate` suppresses display only; `start` stays and
+  is never rendered.
+- **A detour must bow away from off-ramps inside its span.** The bridge arcs to
+  one side for its whole length and every district arcs to its own fixed side,
+  so a detour opening over a ramp lays a road through that district's frontage.
+  Moving The Lab four months later put the Concordia bridge two units from the
+  buildings on the lab ramp; `layoutPlots` pushed one into a second rank to find
+  room, which put it far enough from its own anchor that arriving there offered
+  a neighbour instead. One content date change, three symptoms, two of them
+  nowhere near content.
 - **A junction is not a point.** A spur leaves the spine and stays alongside it
   for around fifty units before there is room for both to have their own kerbs
   and verges. Until then each road was drawing its flanking ribbons on top of
@@ -150,9 +165,13 @@ These cost real time and are invisible in the finished code.
   location already in that file, so nothing is invented and nothing is blank.
   Two or three short paragraphs in his own voice: where he is from, what he
   likes building, what he is looking for next.
-- **Estimated dates.** Several entries in `content/entries/` still carry
-  `TODO(hussein)` comments marking dates that were estimated from the resume
-  and need confirming before they are truthful.
+- **Dates are done.** Every entry was walked through with Hussein on
+  2026-08-27 and all the estimated-date `TODO(hussein)` markers are gone. Eight
+  became bare years, three show no date at all, and the six job and education
+  dates from the resume were confirmed unchanged. Two content `TODO(hussein)`
+  markers remain and are *not* about dates: a YouTube URL on
+  `transformer-cnn-study`, a GitHub URL on `telegram-bot`, screenshots for
+  `games-and-apps`, and the stack bullets on `intellinote2`.
 - **Media.** Only `project-car` has photographs. Every other media folder is
   empty; `npm run dev:preview` stands in for them.
 

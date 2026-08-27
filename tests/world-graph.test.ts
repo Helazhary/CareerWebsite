@@ -383,4 +383,61 @@ describe('the fog ending', () => {
       }
     }
   });
+
+  /**
+   * A detour must not open across an off-ramp on the side it bows to.
+   *
+   * The bridge arcs out to one side of the spine for its whole span and every
+   * district arcs out to its own fixed side, so a detour opening over a ramp
+   * lays a road through that district's frontage. Concordia did exactly that
+   * the moment The Lab's date moved four months later: the bridge passed two
+   * units from the buildings on the lab ramp, and `layoutPlots` had to push one
+   * of them into a second rank behind the others to find room — which in turn
+   * put it far enough from its own anchor that arriving there offered a
+   * neighbour instead.
+   *
+   * Asserted on the built geometry rather than on the side-picking function, so
+   * it holds however the side comes to be chosen.
+   */
+  it('never opens a detour across an off-ramp on the side it bows to', () => {
+    const graph = buildRoadGraph(entries);
+    const detours = graph.edges.filter((edge) => edge.kind === 'detour');
+    expect(detours.length).toBeGreaterThan(0);
+
+    /** Which side of the spine an edge lies on, from where its middle sits. */
+    const sideOf = (edgeId: string): number => Math.sign(sampleEdge(
+      graph.edgeById.get(edgeId) ?? detours[0]!,
+      0.5,
+    ).z);
+
+    for (const detour of detours) {
+      const from = graph.nodeById.get(detour.fromId);
+      const to = graph.nodeById.get(detour.toId);
+      expect(from).toBeDefined();
+      expect(to).toBeDefined();
+      if (from === undefined || to === undefined) continue;
+
+      const open = Math.min(from.position.x, to.position.x);
+      const close = Math.max(from.position.x, to.position.x);
+      const bow = sideOf(detour.id);
+      expect(bow).not.toBe(0);
+
+      for (const spur of graph.edges.filter((edge) => edge.kind === 'spur')) {
+        if (sideOf(spur.id) !== bow) continue;
+        // The junction is wherever this ramp meets the spine, at z = 0.
+        const junction = [spur.fromId, spur.toId]
+          .map((id) => graph.nodeById.get(id))
+          .find((node) => node?.kind === 'junction' && Math.abs(node.position.z) < 1e-6);
+        expect(junction, `"${spur.id}" does not meet the spine`).toBeDefined();
+        if (junction === undefined) continue;
+
+        const inside = junction.position.x > open && junction.position.x < close;
+        expect(
+          inside,
+          `"${detour.id}" bows over "${spur.id}", whose junction sits at ` +
+            `x=${junction.position.x.toFixed(0)} inside the span ${open.toFixed(0)}..${close.toFixed(0)}`,
+        ).toBe(false);
+      }
+    }
+  });
 });

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { entries, getEntry } from '@content/registry';
-import { formatRange } from '@/lib/format';
+import { entryDate } from '@/lib/format';
 import { DISTRICT_LABELS } from '@/lib/site';
 import { StatusBadge } from '@/doc/StatusBadge';
 import { Tags } from '@/doc/Tags';
@@ -30,6 +30,7 @@ export default async function EntryPage({ params }: { params: Promise<Params> })
   const { id } = await params;
   const entry = getEntry(id);
   if (!entry) notFound();
+  const date = entryDate(entry);
 
   return (
     <article>
@@ -42,7 +43,7 @@ export default async function EntryPage({ params }: { params: Promise<Params> })
         {entry.subtitle ? <p className="mt-1 text-accent">{entry.subtitle}</p> : null}
 
         <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted">
-          <span className="font-mono text-xs">{formatRange(entry.start, entry.end)}</span>
+          {date === null ? null : <span className="font-mono text-xs">{date}</span>}
           <span>{DISTRICT_LABELS[entry.district]}</span>
           <StatusBadge status={entry.status} />
         </div>

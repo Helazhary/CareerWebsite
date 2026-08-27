@@ -127,18 +127,57 @@ const DISTRICT_SIDE: Record<District, -1 | 0 | 1> = {
   arcade: -1,
 };
 
+/**
+ * Which way a detour bows out of the spine.
+ *
+ * The bridge arcs to one side for its whole span, and every district arcs to
+ * its own fixed side — so a detour that opens across an off-ramp lays a road
+ * straight through that district's frontage. This is not hypothetical: moving
+ * The Lab four months later put the Concordia bridge two units from the
+ * buildings on the lab ramp, and the layout had to push one of them into a
+ * second rank behind the others to find room for it.
+ *
+ * Bow away from whichever side has a junction inside the span. If both are
+ * occupied there is no right answer, so take the roomier one and let the
+ * layout do what it can.
+ */
+function detourSide(
+  open: number,
+  close: number,
+  junctions: readonly { readonly x: number; readonly side: -1 | 1 }[],
+): -1 | 1 {
+  const roomOn = (side: -1 | 1): number => {
+    let nearest = Number.POSITIVE_INFINITY;
+    for (const junction of junctions) {
+      if (junction.side !== side) continue;
+      // Zero when the junction is inside the span, otherwise the gap to it.
+      nearest = Math.min(nearest, Math.max(open - junction.x, junction.x - close, 0));
+    }
+    return nearest;
+  };
+  // Ties keep the historical +z bow, so a world with nothing in the way looks
+  // exactly as it always did.
+  return roomOn(1) >= roomOn(-1) ? 1 : -1;
+}
+
 /** Districts that branch off the spine, in a stable order. */
 const SPUR_DISTRICTS: readonly District[] = (
   Object.keys(DISTRICT_SIDE) as District[]
 ).filter((d) => DISTRICT_SIDE[d] !== 0);
 
-/** `YYYY-MM` to an absolute month count. Comparable, subtractable. */
+/**
+ * `YYYY-MM` or `YYYY` to an absolute month count. Comparable, subtractable.
+ *
+ * A bare year lands on its January. That is a placement decision, not a claim
+ * about when the work happened: it puts the entry at the start of the year it
+ * belongs to, which is the only defensible spot when the month is unknown.
+ */
 export function monthIndex(yearMonth: string): number {
   const [yearPart, monthPart] = yearMonth.split('-');
   const year = Number(yearPart);
-  const month = Number(monthPart);
-  if (!Number.isFinite(year) || !Number.isFinite(month)) {
-    throw new Error(`Expected YYYY-MM, received "${yearMonth}"`);
+  const month = monthPart === undefined ? 1 : Number(monthPart);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || yearPart?.length !== 4) {
+    throw new Error(`Expected YYYY or YYYY-MM, received "${yearMonth}"`);
   }
   return year * 12 + (month - 1);
 }
@@ -472,7 +511,13 @@ export function buildRoadGraph(
     const close = spineNodes.find((node) => node.id === closeId);
     if (open === undefined || close === undefined) continue;
 
-    const depth = config.detourDepth;
+    const rampJunctions = spineNodes.flatMap((node) => {
+      if (node.district === undefined) return [];
+      const side = DISTRICT_SIDE[node.district];
+      return side === 0 ? [] : [{ x: node.position.x, side }];
+    });
+    const depth =
+      config.detourDepth * detourSide(open.position.x, close.position.x, rampJunctions);
     const points: readonly Vec2[] = [
       open.position,
       { x: open.position.x + (close.position.x - open.position.x) * 0.28, z: depth * 0.75 },

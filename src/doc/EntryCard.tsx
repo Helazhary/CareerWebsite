@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import type { Entry } from '@content/schema';
-import { formatRange } from '@/lib/format';
+import { entryDate } from '@/lib/format';
 import { DISTRICT_LABELS } from '@/lib/site';
 import { StatusBadge } from './StatusBadge';
 import { Tags } from './Tags';
 
 export function EntryCard({ entry }: { entry: Entry }) {
+  const date = entryDate(entry);
+
   return (
     <article className="rounded-lg border border-line bg-surface p-4 transition hover:border-accent/50">
       <div className="flex items-baseline justify-between gap-3">
@@ -15,9 +17,9 @@ export function EntryCard({ entry }: { entry: Entry }) {
           </Link>
           {entry.subtitle ? <span className="text-muted"> · {entry.subtitle}</span> : null}
         </h3>
-        <span className="shrink-0 font-mono text-xs text-muted">
-          {formatRange(entry.start, entry.end)}
-        </span>
+        {date === null ? null : (
+          <span className="shrink-0 font-mono text-xs text-muted">{date}</span>
+        )}
       </div>
 
       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">

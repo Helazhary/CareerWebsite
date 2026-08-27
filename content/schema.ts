@@ -6,9 +6,16 @@ export const DISTRICTS = ['garage', 'lab', 'agents', 'workshop', 'arcade', 'high
 /** Visual skin applied to a plot. Purely presentational — never branch logic on this. */
 export const SKINS = ['garage', 'lab', 'server-room', 'workshop', 'arcade', 'office', 'campus'] as const;
 
-const yearMonth = z
+/**
+ * A date as written in content: a whole year, or a year and a month.
+ *
+ * Bare years exist because most of these dates were reconstructed from a resume
+ * that lists none for projects. "2024" is a thing Hussein can actually confirm;
+ * "February 2024" was a guess wearing a month for precision it never had.
+ */
+const partialDate = z
   .string()
-  .regex(/^\d{4}-\d{2}$/, 'expected YYYY-MM, e.g. "2025-07"');
+  .regex(/^\d{4}(-\d{2})?$/, 'expected YYYY or YYYY-MM, e.g. "2025" or "2025-07"');
 
 export const mediaSchema = z.object({
   /** Filename only. Resolved against /public/media/<entry id>/ */
@@ -31,8 +38,24 @@ export const entrySchema = z.object({
   title: z.string().min(1),
   /** Company or institution. */
   subtitle: z.string().optional(),
-  start: yearMonth,
-  end: z.union([yearMonth, z.literal('present')]).optional(),
+  /**
+   * Where this sits on the timeline. Always present, because the highway *is*
+   * chronology and an off-ramp leaves the spine at the date its district began
+   * — an entry with nothing here cannot be placed.
+   */
+  start: partialDate,
+  end: z.union([partialDate, z.literal('present')]).optional(),
+  /**
+   * Show no date anywhere: not on the card, the panel, or the resume.
+   *
+   * For work whose date is genuinely not known rather than merely imprecise.
+   * `start` still positions it in the world — it has to, or the district it
+   * belongs to has nothing to hang its off-ramp on, and The Arcade would slide
+   * from 2022 to the far end of the map for want of one number nobody sees.
+   * A hidden `start` is layout, not content: it is never rendered, and nothing
+   * claims it is true.
+   */
+  hideDate: z.boolean().default(false),
   district: z.enum(DISTRICTS),
   /** 'in-progress' renders the plot as a construction site. */
   status: z.enum(['shipped', 'in-progress', 'archived']).default('shipped'),

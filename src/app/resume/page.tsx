@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { jobs, education, projects } from '@content/registry';
 import { skillGroups } from '@content/skills';
-import { formatRange } from '@/lib/format';
+import { entryDate } from '@/lib/format';
 import { site } from '@/lib/site';
 import type { Entry } from '@content/schema';
 
@@ -12,6 +12,8 @@ export const metadata: Metadata = {
 };
 
 function Role({ entry }: { entry: Entry }) {
+  const date = entryDate(entry);
+
   return (
     <article className="border-l border-line pl-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -19,9 +21,9 @@ function Role({ entry }: { entry: Entry }) {
           {entry.title}
           {entry.subtitle ? <span className="text-muted"> · {entry.subtitle}</span> : null}
         </h3>
-        <span className="font-mono text-xs text-muted">
-          {formatRange(entry.start, entry.end)}
-        </span>
+        {date === null ? null : (
+          <span className="font-mono text-xs text-muted">{date}</span>
+        )}
       </div>
       <ul className="mt-2 space-y-1.5">
         {entry.bullets.map((bullet) => (
@@ -84,9 +86,9 @@ export default function ResumePage() {
                 <span className="font-medium">{entry.title}</span>
                 <span className="text-muted"> — {entry.summary}</span>
               </Link>
-              <span className="font-mono text-xs text-muted">
-                {formatRange(entry.start, entry.end)}
-              </span>
+              {entryDate(entry) === null ? null : (
+                <span className="font-mono text-xs text-muted">{entryDate(entry)}</span>
+              )}
             </li>
           ))}
         </ul>

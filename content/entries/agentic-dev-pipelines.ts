@@ -4,8 +4,8 @@ const entry: EntryInput = {
   id: 'agentic-dev-pipelines',
   kind: 'project',
   title: 'Agentic Development Pipelines & AI Tooling',
-  // TODO(hussein): dates are ESTIMATED — the resume lists no project dates. Verify before publishing.
-  start: '2025-03',
+  start: '2023',
+  end: '2026',
   district: 'agents',
   skin: 'server-room',
   status: 'in-progress',

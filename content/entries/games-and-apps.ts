@@ -4,8 +4,10 @@ const entry: EntryInput = {
   id: 'games-and-apps',
   kind: 'project',
   title: 'Android Applications & 2D Games',
-  // TODO(hussein): dates are ESTIMATED — the resume lists no project dates. Verify before publishing.
+  // No date shown: Hussein confirmed the month and year are not known. `start`
+  // is kept only to place the plot on its off-ramp and is never rendered.
   start: '2022-09',
+  hideDate: true,
   end: '2024-12',
   district: 'arcade',
   skin: 'arcade',

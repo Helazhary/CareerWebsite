@@ -4,9 +4,7 @@ const entry: EntryInput = {
   id: 'riscv-cpu',
   kind: 'project',
   title: 'Pipelined RISC-V CPU',
-  // TODO(hussein): dates are ESTIMATED — the resume lists no project dates. Verify before publishing.
-  start: '2024-02',
-  end: '2024-06',
+  start: '2024',
   district: 'workshop',
   skin: 'workshop',
   size: 'md',

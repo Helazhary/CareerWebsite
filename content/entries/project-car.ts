@@ -5,8 +5,8 @@ const entry: EntryInput = {
   kind: 'project',
   title: 'Project Car with AI Integration',
   subtitle: 'BMW E36',
-  // TODO(hussein): dates are ESTIMATED — the resume lists no project dates. Verify before publishing.
-  start: '2024-01',
+  start: '2023',
+  end: '2025',
   district: 'garage',
   skin: 'garage',
   size: 'lg',

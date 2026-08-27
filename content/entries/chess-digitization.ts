@@ -4,9 +4,7 @@ const entry: EntryInput = {
   id: 'chess-digitization',
   kind: 'project',
   title: 'Real-Life Chess Digitization',
-  // TODO(hussein): dates are ESTIMATED — the resume lists no project dates. Verify before publishing.
-  start: '2024-09',
-  end: '2025-01',
+  start: '2025',
   district: 'lab',
   skin: 'lab',
   size: 'md',

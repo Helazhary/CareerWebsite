@@ -4,8 +4,10 @@ const entry: EntryInput = {
   id: 'robotics-mechatronics',
   kind: 'project',
   title: 'Robotics & Mechatronics',
-  // TODO(hussein): dates are ESTIMATED — the resume lists no project dates. Verify before publishing.
+  // No date shown: Hussein confirmed the month and year are not known. `start`
+  // is kept only to place the plot on its off-ramp and is never rendered.
   start: '2023-01',
+  hideDate: true,
   district: 'workshop',
   skin: 'workshop',
   size: 'lg',

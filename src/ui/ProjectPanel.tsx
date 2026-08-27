@@ -6,7 +6,7 @@ import type { Entry } from '@content/schema';
 import { LinkRow } from '@/doc/LinkRow';
 import { StatusBadge } from '@/doc/StatusBadge';
 import { Tags } from '@/doc/Tags';
-import { formatRange } from '@/lib/format';
+import { entryDate } from '@/lib/format';
 import { DISTRICT_LABELS } from '@/lib/site';
 import { previewMedia } from '@/preview/placeholders';
 
@@ -27,6 +27,7 @@ export function ProjectPanel({
 }): React.JSX.Element {
   const panel = useRef<HTMLDivElement>(null);
   const media = previewMedia(entry);
+  const date = entryDate(entry);
 
   // Move focus into the panel so a keyboard visitor is not left behind on the
   // canvas, and hand it back on close.
@@ -79,12 +80,16 @@ export function ProjectPanel({
           </button>
         </div>
 
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <span className="font-mono text-xs text-muted">
-            {formatRange(entry.start, entry.end)}
-          </span>
-          <StatusBadge status={entry.status} />
-        </div>
+        {/* Both halves can be absent — a shipped project with a hidden date has
+            neither — and an empty flex row still spends its top margin. */}
+        {date === null && entry.status === 'shipped' ? null : (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {date === null ? null : (
+              <span className="font-mono text-xs text-muted">{date}</span>
+            )}
+            <StatusBadge status={entry.status} />
+          </div>
+        )}
 
         <p className="mt-4 text-muted">{entry.summary}</p>
 

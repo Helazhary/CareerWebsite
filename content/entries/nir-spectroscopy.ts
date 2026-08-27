@@ -4,8 +4,7 @@ const entry: EntryInput = {
   id: 'nir-spectroscopy',
   kind: 'project',
   title: 'NIR Spectroscopy Prediction API',
-  // TODO(hussein): dates are ESTIMATED — the resume lists no project dates. Verify before publishing.
-  start: '2025-05',
+  start: '2026',
   district: 'lab',
   skin: 'lab',
   status: 'in-progress',

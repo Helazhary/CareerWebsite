@@ -4,9 +4,7 @@ const entry: EntryInput = {
   id: 'transformer-cnn-study',
   kind: 'project',
   title: 'Transformer–CNN Comparative Study',
-  // TODO(hussein): dates are ESTIMATED — the resume lists no project dates. Verify before publishing.
-  start: '2025-02',
-  end: '2025-06',
+  start: '2025',
   district: 'lab',
   skin: 'lab',
   size: 'md',

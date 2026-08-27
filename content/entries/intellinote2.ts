@@ -4,8 +4,7 @@ const entry: EntryInput = {
   id: 'intellinote2',
   kind: 'project',
   title: 'IntelliNote2',
-  // TODO(hussein): dates are ESTIMATED — the resume lists no project dates. Verify before publishing.
-  start: '2026-01',
+  start: '2026',
   district: 'agents',
   skin: 'server-room',
   status: 'in-progress',

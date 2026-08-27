@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { entryDate, formatRange } from '@/lib/format';
 import { unknownAmbientIds } from '@/world/skins/ambient';
 import {
   entries,
@@ -99,5 +100,42 @@ describe('content registry', () => {
     const tags = allTags();
     expect(tags.length).toBeGreaterThan(0);
     expect(new Set(tags).size).toBe(tags.length);
+  });
+
+  /**
+   * `hideDate` hides the date and nothing else.
+   *
+   * Most of these dates were reconstructed from a resume that lists none for
+   * projects, so several are years rather than months and three are not shown
+   * at all. `start` still has to exist for every entry even when hidden,
+   * because the highway *is* chronology and a district's off-ramp leaves the
+   * spine at the date its work began — drop it and The Arcade, whose only
+   * member is one of the hidden ones, has nothing to hang its ramp on.
+   */
+  it('keeps a placement date on every entry, shown or not', () => {
+    for (const entry of entries) {
+      expect(entry.start, `"${entry.id}" has no start`).toMatch(/^\d{4}(-\d{2})?$/);
+    }
+  });
+
+  it('shows no date at all for entries that hide it', () => {
+    const hidden = entries.filter((entry) => entry.hideDate);
+    expect(hidden.length).toBeGreaterThan(0);
+    for (const entry of hidden) {
+      expect(entryDate(entry), `"${entry.id}" still renders a date`).toBeNull();
+    }
+    for (const entry of entries.filter((e) => !e.hideDate)) {
+      expect(entryDate(entry), `"${entry.id}" renders nothing`).not.toBe('');
+    }
+  });
+
+  it('writes a bare year as a year, never dressed up with a month', () => {
+    expect(formatRange('2024')).toBe('2024');
+    expect(formatRange('2023', '2025')).toBe('2023 – 2025');
+    // A year against a month in the same year is that year, not a range.
+    expect(formatRange('2025', '2025-06')).toBe('2025');
+    // Months survive untouched where content actually has them.
+    expect(formatRange('2021-09', '2026-02')).toBe('Sep 2021 – Feb 2026');
+    expect(formatRange('2026-03', 'present')).toBe('Mar 2026 – Present');
   });
 });
