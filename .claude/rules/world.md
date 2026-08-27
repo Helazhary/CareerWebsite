@@ -20,12 +20,33 @@ things that break silently and are invisible until someone drives past them:
 - nothing grows in the road
 - the car can never leave the graph, under any input
 - every plot is reachable by driving, not merely connected in the adjacency list
+- arriving at a project puts you at *that* project, not at its neighbour
+- a detour never opens across an off-ramp on the side it bows to
 - a title always fits its sign
 
-When one of these breaks, add the regression test at the same time as the fix.
+All of these are covered in `tests/`. When one breaks, add the regression test
+at the same time as the fix — and **negative-check it**: break the thing it
+guards and confirm it fails, naming the right thing. A test written after the
+fix can pass vacuously and prove nothing.
 Assert on the **final rendered positions**, not on the intermediate data — the
 highway once rendered out of chronological order while the anchors it came from
 were perfectly correct.
+
+## Content changes move the world
+
+A date is not a label. The highway *is* chronology: entries are placed along it
+by date and an off-ramp leaves the spine where its district began, so editing
+one date in `content/entries/` relays the roads.
+
+This is not theoretical. Moving The Lab four months later opened the Concordia
+detour directly across the lab off-ramp, `layoutPlots` pushed a building into a
+second rank to find room, and that put it far enough from its own anchor that
+arriving there offered a neighbour instead — one content edit, three symptoms,
+two of them nowhere near content. **Run `npm run check` after any date change**;
+those three surfaced as three failing tests.
+
+`hideDate` hides a date; it does not remove one. Every entry keeps a `start`
+because a district with nothing dated in it has nothing to place its ramp by.
 
 ## No project-specific code, anywhere in here
 

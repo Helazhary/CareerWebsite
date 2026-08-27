@@ -99,7 +99,8 @@ and CI will fail with "content index is in sync" to catch it.
 | `kind` | `project`, `job`, or `education` |
 | `title` | Shown on the card, the page, and the building's sign |
 | `subtitle` | Company or institution. Optional. |
-| `start` / `end` | `YYYY-MM`. Use `'present'` for a current role. Omit `end` for ongoing personal work. |
+| `start` / `end` | `YYYY` or `YYYY-MM`. Use `'present'` for a current role. Omit `end` for ongoing personal work. A bare year means the month is genuinely not known — do not add one to make it look precise. |
+| `hideDate` | `true` shows no date anywhere. `start` is still required: the highway is a timeline and a district's off-ramp is placed by the date its work began, so an entry with nothing there cannot be placed. |
 | `district` | Which off-ramp it lives on: `garage`, `lab`, `agents`, `workshop`, `arcade`, or `highway` for jobs and degrees |
 | `status` | `shipped`, `in-progress` (renders as a construction site), or `archived` |
 | `skin` | The building's look. Usually matches the district. |
@@ -108,6 +109,7 @@ and CI will fail with "content index is in sync" to catch it.
 | `summary` | One line, under 200 chars. Also the page's meta description. |
 | `bullets` | The whole body. Three to five. Concrete things built or measured. |
 | `media` | Images. See below. |
+| `ambient` | Props standing on the forecourt, by id — e.g. `['oscilloscope']`. See the kit in `src/world/skins/ambient.tsx`; an id with no prop registered is ignored. |
 | `links` | `repo`, `demo`, `video`, `writeup` — all optional |
 | `featured` | Pins it to the landing page |
 
@@ -219,7 +221,14 @@ Setup steps, if it is not connected yet: `docs/CLOUDFLARE.md`.
 ## 8. Working with Claude on this repo
 
 `CLAUDE.md` loads automatically every session and carries the architectural rules,
-so you do not need to re-explain the project. `docs/DESIGN.md` has the full plan.
+so you do not need to re-explain the project. **`docs/HANDOFF.md` is the one to
+point a fresh session at** — it carries what is deployed, what is next, what is
+blocked on you, and the traps in verifying any of it in a browser.
+`docs/DESIGN.md` has the full plan.
+
+Starting a new session cold, this is usually enough:
+
+> Read docs/HANDOFF.md and continue from where the last session stopped.
 
 **Prompts that work well:**
 
