@@ -214,7 +214,13 @@ pieces — shells, plinths, roofs, roll-up doors, lit window bands.
 fixed seed, so the world looks the same on every build. Change the seed and you
 get a different but equally valid world.
 
-**The map draws itself.** Press `M` and you get a subway-style diagram: one line
+**The road you are on is always on screen**, bottom left: its name, its stops
+as a row of dots with the one you are at filled, and the name of the one coming
+up. Clicking it opens the full map. It is built from the same data as the map,
+so nothing about it needs maintaining.
+
+**The map draws itself.** Press `M`, or click that strip, and you get a
+subway-style diagram: one line
 per district, a stop per entry, the stop you are at lit and the one you are
 heading for shown more quietly. It is built by `src/world/transit.ts` from the
 road graph and the laid-out buildings, so adding an entry or moving one to a

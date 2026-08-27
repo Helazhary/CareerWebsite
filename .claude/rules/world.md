@@ -78,8 +78,22 @@ proximity prompt half a turn out for the length of a manoeuvre.
 
 It orbits the car outdoors and swivels in place indoors, and the split is not
 negotiable: a room is smaller than the chase radius, so orbiting inside the
-garage puts the camera through a wall. Elevation is clamped at both ends —
-"I got stuck looking at the sky" is a class of bug, not a preference.
+garage puts the camera through a wall.
+
+**Yaw wraps; it is not clamped.** A full circle is the point — you can look at
+the front of your own car — and a limit anywhere reads as the camera being
+broken, which it did at 135° and again at 180°. Elevation *is* clamped at both
+ends: "I got stuck looking at the sky" is a class of bug, not a preference.
+
+Three things scale with how far round the orbit has come, and all three are
+measured from where the camera **actually is**, not from where the drag has got
+to — during a fast spin those are a long way apart, and using the drag frames
+the shot for an angle the camera has not reached:
+
+- the look-ahead, or the car slides off the bottom of the frame side-on;
+- the height bias, for the same reason;
+- the **radius**, or a side-on view sweeps the full chase distance through
+  whatever is standing beside the road and the screen fills with one wall.
 
 ## Performance
 

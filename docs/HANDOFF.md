@@ -26,15 +26,20 @@ working tree is clean, CI is green, and helazhary.com is serving it.
 | Junction rendering: side roads taper out of the mouth | live |
 | Dates confirmed by Hussein; year-only and hidden dates | live |
 | Transit-diagram map, orbit camera, animated U-turn, road-name flash | built and verified |
-| Pyramids and desert brought in close | built and verified |
+| Always-on line strip, bottom left, click to open the map | built and verified |
+| Free 360° orbit that pulls in as it comes round | built and verified |
+| Pyramids as lit objects at the end of the road; desert starts where the roads do | built and verified |
 | **M4 — the real car `.glb`** | **not started, blocked** |
 | **M5 — a showpiece** | **not started** |
 
 ### What to pick up next
 
 **M4 is parked by Hussein, not blocked.** On 2026-08-27 he said he is keeping
-the primitives car as it is for now — other things matter more. The decision
-described below is still the decision when it comes back.
+the primitives car as it is for now — other things matter more — and asked for
+the exploratory work to be removed until he decides. It has been: `carBody.ts`,
+`scripts/build-car.mjs`, its test, `public/models/` and the `build:car` script
+are all gone. The decision described below is still the decision when it comes
+back.
 
 There is no `.glb` anywhere in the repo. Either he supplies a low-poly E36 to
 drop into `public/models/`, or he agrees to sculpt a better silhouette from
@@ -49,14 +54,12 @@ A route was scoped and half-proven before he parked it: `three`'s
 a valid GLB, so a build script could generate the car from a table of
 cross-sections with no Blender and no new dependency.
 
-**There is uncommitted scratch from that spike still in the tree**, all of it
-predating the decision to park M4: `src/world/carBody.ts`,
-`scripts/build-car.mjs`, `tests/world-car-body.test.ts`, an empty
-`public/models/`, and a `build:car` script added to `package.json`. The test
-runs and passes as part of `npm run check`, so it is not inert — but nothing in
-`src/world/` imports `carBody.ts` and the rendered car is still the primitives
-one in `Car.tsx`. Decide whether to commit or delete it before it becomes
-folklore.
+None of it is in the tree any more. If M4 restarts, the finding worth keeping is
+just that one paragraph: no Blender, no new dependency, six lines of shim.
+
+His standing wish list for whatever the car becomes: the blue it already wears,
+the angel-eye rings it already has, **gold/bronze split-spoke rims**, and the
+boot spoiler.
 
 **M5 has not been proposed.** `showpiece` is in the schema and reserved; no
 entry sets it. Read DESIGN.md §9 and come back with a proposal before building.
@@ -213,6 +216,14 @@ a year** — that guess is exactly what the exercise removed.
 
 ## 4. Known loose ends
 
+- **The pyramids are unfogged and everything around them is not.** They stand
+  at x=1690–1960 and the fog ends at 1450, so from the western half of the road
+  they would be erased entirely — which is what "I can't see them" meant the
+  first time. Unfogged they are always there to drive towards, at the cost of
+  looking slightly crisper than their surroundings at the far end. The ridge was
+  pushed from 1750 to 2400 to make room for them; if it ever comes back in,
+  they will start popping out from behind a hill as you drive, because the ridge
+  travels with the camera and they do not.
 - **A station label can cross a neighbouring line on the map.** The Agent Alley
   labels lean down-right across the elbow where The Lab drops away from the
   trunk. It is legible — the lines are told apart by colour, and the labels sit
@@ -348,6 +359,18 @@ ones about the pure layer are also listed as invariants in
   behind and puts the car off the bottom of the screen from the side. Scaling
   both by `cos(yaw)` was the difference between "the car stays centred" being
   true and being a comment.
+- **Scale the framing by where the camera is, not by where the drag is.** Same
+  bug, second visit. `look.yaw` is the *target*; the damped azimuth is the
+  truth, and in a fast spin they differ by most of a turn. Framing off the
+  target meant a hard drag threw the car out of frame anyway.
+- **A full-radius orbit drives the camera through the scenery.** At 88 units
+  the side-on sweep goes straight through whatever is beside the road, and
+  beside the road is where all the buildings are — one grey wall, full screen.
+  The orbit pulls in to 42% at the nose, which keeps it inside the road corridor
+  the whole way round and gives a better shot of the car as a bonus.
+- **"It has a limit" beats any amount of reasoning about why the limit is
+  right.** Yaw was capped at 135°, then "fixed" to ±180°, which is still a wall
+  you drag into — and it was reported as feeling identical. It wraps now.
 - **Capping the height of a full-width SVG letterboxes it.** `w-full` with
   `max-h` keeps the element full width and shrinks the drawing to fit the cap,
   so the map drew at 600px inside a 1020px modal with dead space either side.

@@ -10,6 +10,7 @@ import { IntroOverlay } from '@/ui/IntroOverlay';
 import { Minimap } from '@/ui/Minimap';
 import { ProjectPanel } from '@/ui/ProjectPanel';
 import { RoadName } from '@/ui/RoadName';
+import { TransitStrip } from '@/ui/TransitStrip';
 import { type DriveState, initialDriveState, stateAtAnchor } from './drive';
 import { Scene, type HudState } from './Scene';
 import { useDriveInput } from './useDriveInput';
@@ -101,6 +102,9 @@ export default function WorldCanvas({
       />
 
       <RoadName district={hud?.roadDistrict ?? null} hidden={paused} />
+
+      {/* Always up. The map is the detail; this is the part you steer by. */}
+      <TransitStrip hud={hud} onOpenMap={() => setMapOpen(true)} hidden={paused} />
 
       <Minimap
         open={mapOpen}

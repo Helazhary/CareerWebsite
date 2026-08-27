@@ -6,10 +6,13 @@ import { useEffect, useRef } from 'react';
  * Drag to look around.
  *
  * DESIGN.md §2.2 takes camera control away deliberately, so that every scene is
- * framed the way it was laid out and nobody ends up staring at the sky. That
- * still holds — this is a *nudge*, not a free camera: elevation is clamped well
- * clear of the ground and the sky, and the view returns to the designed framing
- * on its own.
+ * framed the way it was laid out and nobody ends up staring at the sky.
+ *
+ * What survives of that is the *return*: elevation is still clamped well clear
+ * of the ground and the sky, and the view always drifts back to the designed
+ * framing on its own. What has gone is the cap on yaw. A full circle around the
+ * car turned out to be the thing people reach for first — it is their car —
+ * and an orbit that stops short of it reads as broken rather than as restraint.
  *
  * Without it the garage is a room you cannot look around, which is a poor
  * showing for a room with things on the walls.
@@ -36,15 +39,19 @@ export interface LookOffset {
 }
 
 /**
- * All the way round, either way.
+ * Yaw does not have a limit. It wraps.
  *
- * The old limit was 135°, from when this swivelled the camera in place: past
- * that you were looking at empty road with the car off screen entirely. An
- * orbit keeps the car in the middle of the frame at every angle, so there is
- * nothing left to protect the viewer from and a full circle is simply useful —
- * you can look at the front of your own car.
+ * This has now been wrong twice in the same direction. First it was capped at
+ * 135°, from when the camera swivelled in place and looking further meant
+ * losing the car off the edge of the frame. Then it was "fixed" to ±180°,
+ * which is not a full circle — it is a wall at the back of the car that you
+ * hit and cannot drag past, and it feels exactly like the 135° one did.
+ *
+ * An orbit keeps the car centred at every angle, so there is nothing to protect
+ * the viewer from. Yaw accumulates freely and is folded back into (-π, π] so
+ * that the drift home always takes the short way round rather than unwinding
+ * three turns of dragging.
  */
-export const LOOK_YAW_LIMIT = Math.PI;
 /** Elevation is still bounded. The ground and the sky are not framings. */
 export const LOOK_PITCH_LIMIT = 0.5;
 
@@ -61,6 +68,17 @@ const VELOCITY_WINDOW_MS = 90;
 
 function clamp(value: number, limit: number): number {
   return Math.min(Math.max(value, -limit), limit);
+}
+
+/** Into (-π, π], so a spin past the back of the car keeps going. */
+function wrapAngle(value: number): number {
+  const wrapped = (value + Math.PI) % (Math.PI * 2);
+  return (wrapped < 0 ? wrapped + Math.PI * 2 : wrapped) - Math.PI;
+}
+
+/** Shortest signed way from `from` to `to`, for velocity across the wrap. */
+function angleDelta(from: number, to: number): number {
+  return wrapAngle(to - from);
 }
 
 export function useLookAround(): React.RefObject<LookOffset> {
@@ -101,10 +119,9 @@ export function useLookAround(): React.RefObject<LookOffset> {
 
     const onMove = (event: PointerEvent): void => {
       if (pointer !== event.pointerId) return;
-      look.current.yaw = clamp(
-        look.current.yaw - (event.clientX - lastX) * YAW_PER_PIXEL,
-        LOOK_YAW_LIMIT,
-      );
+      // Drag left and the camera swings round to the car's right-hand side, so
+      // the flank that comes into view is the one you dragged towards.
+      look.current.yaw = wrapAngle(look.current.yaw + (event.clientX - lastX) * YAW_PER_PIXEL);
       look.current.pitch = clamp(
         look.current.pitch + (event.clientY - lastY) * PITCH_PER_PIXEL,
         LOOK_PITCH_LIMIT,
@@ -114,7 +131,9 @@ export function useLookAround(): React.RefObject<LookOffset> {
 
       const elapsed = event.timeStamp - markTime;
       if (elapsed >= VELOCITY_WINDOW_MS) {
-        look.current.velocityYaw = ((look.current.yaw - markX) / elapsed) * 1000;
+        // Shortest arc, or a drag straight through the back of the car reads as
+        // a 360°-per-second flick in the opposite direction.
+        look.current.velocityYaw = (angleDelta(markX, look.current.yaw) / elapsed) * 1000;
         look.current.velocityPitch = ((look.current.pitch - markY) / elapsed) * 1000;
         markX = look.current.yaw;
         markY = look.current.pitch;

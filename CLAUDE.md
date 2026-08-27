@@ -68,11 +68,10 @@ before touching `src/world/`.
 
 ## Current state
 
-**Everything built before 2026-08-27 is deployed and live on helazhary.com.**
-The legibility pass listed below is committed but unverified in a browser and
-undeployed. M4 (the real car `.glb`) and M5 (a showpiece) remain; **M4 is
-parked** — Hussein is keeping the primitives car for now, and it still needs a
-decision from him before anyone starts it.
+**Everything below is deployed and live on helazhary.com.** M4 (the real car
+`.glb`) and M5 (a showpiece) remain; **M4 is parked** — Hussein is keeping the
+primitives car for now, and it still needs a decision from him before anyone
+starts it.
 
 - **M0** — content pipeline, doc mode, CI, hosting.
 - **M1** — the world: road graph, plot layout, spline driving, junctions,
@@ -93,9 +92,13 @@ decision from him before anyone starts it.
 - **Legibility pass (2026-08-27)** — the map redrawn as a transit diagram with a
   lit "you are here" and a softer "next stop"; a chase camera that orbits the
   car instead of swivelling in place; a U-turn that arcs over 0.8s with input
-  locked; the road's name flashed briefly on entering a new district; and the
-  pyramids and desert brought close enough to be part of the world. **None of
-  this has been seen in a browser yet** — see `docs/HANDOFF.md` §1.
+  locked; and the road's name flashed briefly on entering a new district.
+- **Wayfinding and the far end (2026-08-27)** — an always-on strip in the corner
+  naming the road, the stops on it and the one coming up, which opens the full
+  map on a click; a free 360° orbit that pulls in as it comes round so the car
+  stays centred and the camera stays out of the buildings; the pyramids turned
+  from painted backdrop into lit limestone standing past the end of the road;
+  and the desert starting exactly where the roads stop.
 
 See `docs/DESIGN.md` §9 for the full plan.
 
@@ -154,6 +157,13 @@ Kept because they cost real time and are invisible in the code.
   sizing, and every `getComputedStyle` read of a transitioned property returns
   the pre-change value forever — which looks exactly like CSS that is not
   matching. Read an untransitioned property to tell the two apart.
+- **Scale a camera's framing by where it *is*, not by where the drag is.** The
+  input is the target; the damped angle is the truth, and in a fast spin they
+  are most of a turn apart.
+- **Distance is set by apparent size.** The pyramids were placed at the first
+  spot with room and subtended 40°, which reads as a bug rather than a monument.
+  Anything meant to look like a landmark gets its distance from the angle it
+  should subtend from where the viewer stands.
 - **Lint rules about render-time mutation are right.** Components created during
   render remount; effects that setState synchronously cascade. Use
   `useSyncExternalStore` for probes, and mutate input buffers in the module that

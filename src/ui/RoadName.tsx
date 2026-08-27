@@ -1,5 +1,6 @@
 'use client';
 
+import type { District } from '@content/schema';
 import { DISTRICT_LABELS } from '@/lib/site';
 
 /**
@@ -30,7 +31,7 @@ export function RoadName({
   hidden,
 }: {
   /** District of the road the car is on right now. */
-  district: string | null;
+  district: District | null;
   /** The intro card is up, or a panel is: say nothing. */
   hidden: boolean;
 }): React.JSX.Element | null {

@@ -30,9 +30,15 @@ export const WORLD_COLORS = {
   ground: '#232b26',
   /** Distant hills. Sits between the fog and the sky so it reads as far away. */
   horizon: '#1a2030',
-  /** Lit by the last of the sun, a shade above the hills behind them. */
-  /** A shade lighter than the hills, so they read as nearer and catch the sun. */
-  pyramid: '#2b2735',
+  /**
+   * Limestone, lit by the last of the sun.
+   *
+   * They were a near-black silhouette when they were backdrop, painted to sit
+   * between the hills and the sky. They stand in the desert now, at the end of
+   * the road, close enough to be a place rather than a picture — so they are
+   * the colour of the stone and the light does the rest.
+   */
+  pyramid: '#c8a878',
   road: '#39424f',
   kerb: '#6b7690',
   centreLine: '#b9c2d4',

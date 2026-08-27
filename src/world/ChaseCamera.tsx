@@ -45,6 +45,20 @@ const FOLLOW_DAMPING = 3.2;
  */
 const AZIMUTH_DAMPING = 3.4;
 
+/**
+ * How tightly the orbit follows the pointer while a drag is in progress.
+ *
+ * Fast enough to feel like the camera is attached to the finger, not so fast
+ * that it loses the smoothing entirely on a slow frame.
+ */
+const DRAG_TRACKING = 16;
+
+/**
+ * How close the orbit comes in at the car's nose, as a fraction of the chase
+ * radius. Behind the car it is always 1; this is the other end of the ramp.
+ */
+const ORBIT_REACH_MIN = 0.42;
+
 /** Elevation bounds, absolute. Below the lower one you are under the road. */
 const MIN_ELEVATION = 0.14;
 const MAX_ELEVATION = 1.15;
@@ -58,8 +72,14 @@ const MAX_ELEVATION = 1.15;
  * something, short enough that a stray drag does not strand the framing.
  */
 const HOLD_SECONDS = 1.6;
-/** Gentle. This is a drift back, not a snap. */
-const SPRING = 1.5;
+/**
+ * Gentle. This is a drift back, not a snap.
+ *
+ * Slower than it was, because the orbit now goes all the way round: coming home
+ * from 170° at the old rate was a lurch, and the point of letting the viewer
+ * spin the camera is spoiled if the way back is abrupt.
+ */
+const SPRING = 0.85;
 /** How quickly a flick runs out of momentum. */
 const INERTIA_DECAY = 4.5;
 /** Below this the spring has arrived; snap and stop paying for it. */
@@ -142,7 +162,9 @@ export function ChaseCamera({
 
       // Carry the flick on for a moment, then let it die.
       const momentum = Math.exp(-INERTIA_DECAY * raw);
-      look.yaw += look.velocityYaw * raw;
+      // Wrapped, so a flick that carries past the back of the car keeps going
+      // round instead of running up against ±180°.
+      look.yaw = angleDelta(0, look.yaw + look.velocityYaw * raw);
       look.pitch += look.velocityPitch * raw;
       look.velocityYaw *= momentum;
       look.velocityPitch *= momentum;
@@ -199,10 +221,27 @@ export function ChaseCamera({
       if (azimuth.current === null) {
         azimuth.current = target;
       } else {
-        azimuth.current += angleDelta(azimuth.current, target) * (1 - Math.exp(-AZIMUTH_DAMPING * delta));
+        // Tight while a finger is down, damped the rest of the time. Damping is
+        // there to make a U-turn an arc; under a drag it is just lag, and a
+        // camera that trails the pointer by a third of a second feels broken.
+        const rate = look.held ? DRAG_TRACKING : AZIMUTH_DAMPING;
+        azimuth.current += angleDelta(azimuth.current, target) * (1 - Math.exp(-rate * delta));
       }
 
-      const radius = Math.hypot(distance, height);
+      // How far round the orbit has actually come: 1 behind, 0.5 side-on, 0 at
+      // the nose. Everything about the framing is a function of this.
+      const swung = (1 + Math.cos(angleDelta(behind, azimuth.current))) / 2;
+
+      // The orbit comes in as it comes round.
+      //
+      // Not a nicety: at the full chase distance a side-on view sweeps a circle
+      // 88 units wide through whatever is standing beside the road, and next to
+      // a building — which is most places worth stopping — the camera ends up
+      // inside a wall with the screen filled by one grey polygon. Pulled in, it
+      // stays within the road corridor the whole way round, and a close shot is
+      // the right shot anyway once the subject is the car rather than the road.
+      const reach = ORBIT_REACH_MIN + (1 - ORBIT_REACH_MIN) * swung;
+      const radius = Math.hypot(distance, height) * reach;
       const elevation = clamp(
         Math.atan2(height, distance) + look.pitch,
         MIN_ELEVATION,
@@ -216,8 +255,16 @@ export function ChaseCamera({
         position.z + Math.sin(azimuth.current) * ground,
       );
 
-      // 1 directly behind the car, 0 side-on and beyond.
-      const frontality = Math.max(Math.cos(look.yaw), 0);
+      // 1 directly behind the car, 0 side-on and beyond. Sharper than `swung`
+      // because the look-ahead has to be gone by the time the camera is abeam,
+      // not merely halved.
+      //
+      // Measured from where the camera *is*, not from where the drag has got
+      // to. Those are the same thing at rest and a long way apart during a fast
+      // spin, and using the drag meant the framing was set for an angle the
+      // camera had not reached: swing the orbit hard and the car left the frame
+      // entirely, which is the exact failure this scaling exists to prevent.
+      const frontality = Math.max(swung * 2 - 1, 0);
       const ahead = lookAhead * frontality;
 
       const forwardX = -Math.cos(azimuth.current);

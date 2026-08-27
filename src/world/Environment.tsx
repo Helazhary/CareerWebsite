@@ -18,7 +18,19 @@ import { SUN_DIRECTION, WORLD_COLORS } from './palette';
 
 const GROUND_SIZE = 7000;
 const SKY_RADIUS = 2600;
-const HORIZON_RADIUS = 1750;
+/**
+ * How far out the skyline stands.
+ *
+ * Pushed from 1750 because the pyramids stopped being backdrop and became
+ * things in the world. The ridge travels with the camera and the pyramids do
+ * not, so any ridge nearer than the furthest pyramid is a wall that the pyramid
+ * crosses as you drive — it pops out from behind a hill that is not there. Both
+ * ranges now stand beyond the furthest a pyramid can ever be from the car,
+ * which is about 2100 units, from the garage to the far one.
+ *
+ * Heights below are scaled with it so the skyline subtends what it always did.
+ */
+const HORIZON_RADIUS = 2400;
 
 /**
  * The sky: a dome coloured per vertex.
@@ -161,8 +173,10 @@ function Horizon(): React.JSX.Element {
     // Two overlapping ranges, the far one taller and hazier, so the skyline has
     // depth instead of being one cut-out.
     for (const [radius, floor, variance, blend] of [
-      [HORIZON_RADIUS, 40, 120, 0.0],
-      [HORIZON_RADIUS * 0.78, 22, 70, 0.35],
+      [HORIZON_RADIUS, 55, 165, 0.0],
+      // 0.92 rather than 0.78: the near range has to clear the pyramids too,
+      // and two ranges 190 apart still read as two.
+      [HORIZON_RADIUS * 0.92, 30, 96, 0.35],
     ] as const) {
       const start = positions.length / 3;
       // The nearer range sits slightly hazier, so the two read as different
@@ -219,18 +233,19 @@ function Desert(): React.JSX.Element | null {
     if (map !== null) map.repeat.set(GROUND_SIZE / 90, GROUND_SIZE / 90);
     return map;
   }, []);
-  // Fractions of the plane, which is 7000 across. Grass holds for roughly 525
-  // units, then gives way to sand by about 1120 — comfortably inside the 1450
-  // fog distance, so the desert is something you drive *through* rather than
-  // something you approach. The defaults put the transition 2100 units out,
-  // where nothing can be seen at all; the first pass at this pulled it to
-  // 700–1500, which still left the far end of the highway on green.
+  // Fractions of the plane, which is 7000 across and centred at x=350.
   //
-  // The lower bound is the one to be careful with: the plane is centred at
-  // x=350, near the middle of a world that runs to about x=1300, so dropping
-  // the clear radius much below 500 starts putting sand under the buildings
-  // themselves and the green heart of the map stops reading as a contrast.
-  const mask = useMemo(() => makeDesertMask(256, 0.075, 0.16), []);
+  // Tied to the road rather than picked: the last junction stands at x=1056,
+  // which is 706 units from the centre of this plane, so grass holds to 0.10
+  // and the sand comes in over the next 300. Green covers exactly the part of
+  // the world that has roads in it and the desert starts where they stop —
+  // which is the whole reason the far end of the highway is worth driving to,
+  // and it puts the pyramids in sand rather than on a lawn.
+  //
+  // Do not push the clear radius much below 0.10. The plane is centred near the
+  // middle of the built world, so a smaller circle starts laying sand under the
+  // buildings and the green stops reading as a contrast at all.
+  const mask = useMemo(() => makeDesertMask(256, 0.101, 0.143), []);
 
   useEffect(
     () => () => {
@@ -251,34 +266,28 @@ function Desert(): React.JSX.Element | null {
 }
 
 /**
- * Three of them, as seen from Cairo: two large, one small, off to one side.
+ * Three of them, standing in the desert past the end of the road.
  *
- * **Sunward, and deliberately.** They used to sit opposite the sun, where a
- * dark silhouette against a dark sky is not a silhouette at all — the largest
- * read as a faint smudge and the other two were never visible from anywhere,
- * because their apexes sat *below* the ridge line. Giza is west of Cairo and
- * you see it against the sunset. So does this.
+ * They were backdrop until now: carried with the camera so they never came any
+ * closer, unfogged, and painted almost black to read as a silhouette against
+ * the sunset. That bought visibility at the cost of being scenery you could
+ * never arrive at, and at dusk it did not even buy much of that.
  *
- * Placed by bearing off the sun rather than in absolute coordinates, so the
- * cluster follows if the sun ever moves — the same reason `Sun.tsx` derives its
- * offset from `SUN_DIRECTION`.
+ * They are objects now. Fixed in the world east of the last junction, the
+ * colour of the stone, and lit by the same sun as everything else — which
+ * works because the sun is *behind* the viewer on the drive out, so the faces
+ * you see are the lit ones. The road ends, the grass runs out, and there is
+ * something standing in the sand at the end of it.
+ *
+ * Distance is set by apparent size, not by where there was room. Placed at the
+ * first plausible spot — 250 units past the last junction — a 200-unit pyramid
+ * subtends nearly 40° and fills the sky like a wall, which reads as a bug
+ * rather than as a monument. Giza from the edge of Cairo is a few degrees. At
+ * 700-900 units out and 140-150 tall these come in around 9-12°: unmistakably
+ * the thing at the end of the road, and still recognisably a building.
+ *
+ * The skyline was moved out to 2400 to make room. See `HORIZON_RADIUS`.
  */
-const SUN_BEARING = Math.atan2(SUN_DIRECTION.z, SUN_DIRECTION.x);
-
-/**
- * Bearing measured off the sun, positive towards the westward run of the road.
- *
- * The cluster has to satisfy two things at once and there is only a narrow
- * window that does both. It must sit inside the warm band, or the silhouettes
- * have nothing to be silhouettes against — and it must fall within about 38° of
- * the heading you actually drive, or you never see it without dragging to look
- * around. Placed purely by prettiness it lands 50° off-axis, which is exactly
- * where the first attempt at this ended up.
- */
-function placeBySun(degreesOffSun: number, distance: number): { x: number; z: number } {
-  const bearing = SUN_BEARING + (degreesOffSun * Math.PI) / 180;
-  return { x: Math.cos(bearing) * distance, z: Math.sin(bearing) * distance };
-}
 
 /**
  * A cone's `size` is the circumradius of its square base — the half-*diagonal*,
@@ -287,39 +296,28 @@ function placeBySun(degreesOffSun: number, distance: number): { x: number; z: nu
  */
 const BASE_TO_HEIGHT = 1.13;
 /**
- * Sunk slightly, so the bases sit in the ground rather than hovering over it.
+ * Sunk a little, so the bases sit in the sand rather than resting on it.
  *
- * This used to be about meeting the ridge line. In front of the ridge it is
- * about meeting the desert, and it happens to be the same number: the group
- * rides with the camera while the ground does not, so a base above y=0 would
- * skim across the sand as you drive.
+ * Small now that they hold still. It used to be 14, because the group rode with
+ * the camera and a base above y=0 skimmed across the ground as you drove.
  */
-const BURIED = 14;
+const BURIED = 3;
 
 function Pyramids(): React.JSX.Element {
   const shapes = useMemo(
     () =>
-      // Brought in from about 2000 units to about 1200, which is where they
-      // stand now. Nothing about the shapes changed — the distance is the whole
-      // edit, and it is worth roughly 1.7x their apparent size: the large pair
-      // subtend 11.7° and 10.5° where they used to manage 7.1° and 6.3°.
+      // World coordinates, out past the end of the road at x=1056. Heights are
+      // near enough the real ones — the Great Pyramid is about 140 tall to its
+      // 230 of base — so the proportions are Giza's and only the distance is a
+      // decision.
       //
-      // 1200 is not arbitrary. It has to clear the ridge, which is a wall at
-      // radius 1750 — anything beyond that is *behind* the skyline and gets
-      // occluded rather than silhouetted. It also has to stay far enough out
-      // that riding with the camera still passes for a backdrop; nearer than
-      // about a thousand and the lack of parallax against the streaming ground
-      // starts to show.
-      //
-      // Each height was set against the ridge at that particular bearing, which
-      // runs between 2.5° and 4.5° of elevation across this window. Anything
-      // shorter than the ridge beneath it is simply not in the scene however
-      // carefully it is placed, which is what happened to two of the previous
-      // three — so the small one takes the bearing where the ridge runs lowest.
+      // Spread across three bearings and three distances so the group has depth
+      // from the road rather than standing in a line, with the small one nearest
+      // so its size is legible against the other two.
       [
-        { ...placeBySun(3, 1150), height: 150 },
-        { ...placeBySun(9, 1200), height: 262 },
-        { ...placeBySun(17, 1280), height: 252 },
+        { x: 1780, z: -150, height: 150 },
+        { x: 1960, z: 130, height: 140 },
+        { x: 1690, z: 265, height: 72 },
       ] as const,
     [],
   );
@@ -334,9 +332,17 @@ function Pyramids(): React.JSX.Element {
         >
           {/* A four-sided cone is a pyramid, and costs eight triangles. */}
           <coneGeometry args={[shape.height * BASE_TO_HEIGHT, shape.height, 4]} />
-          {/* Unfogged, like the hills. At this distance fog would erase them
-              entirely; a flat silhouette against the sunset is the point. */}
-          <meshBasicMaterial color={WORLD_COLORS.pyramid} fog={false} />
+          {/* Lit and flat-shaded, so two faces of every one of them catch the
+              sun differently and they read as solid. Still unfogged: they stand
+              beyond the 1450 fog distance from the western half of the road,
+              and fog there would erase the thing you are driving towards. */}
+          <meshStandardMaterial
+            color={WORLD_COLORS.pyramid}
+            roughness={1}
+            metalness={0}
+            flatShading
+            fog={false}
+          />
         </mesh>
       ))}
     </group>
@@ -392,10 +398,12 @@ export function Environment(): React.JSX.Element {
       <Distant>
         <Sky />
         <Horizon />
-        <Pyramids />
       </Distant>
       <Ground />
       <Desert />
+      {/* Not `Distant`. They stand in the world at the end of the road, and the
+          whole point is that driving towards them brings you closer. */}
+      <Pyramids />
     </group>
   );
 }

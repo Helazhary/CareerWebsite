@@ -3,6 +3,7 @@
 import { useFrame } from '@react-three/fiber';
 import { useCallback, useRef } from 'react';
 import type { Group } from 'three';
+import type { District } from '@content/schema';
 import { DEFAULT_LAYOUT_OPTIONS } from './layout';
 import {
   DEFAULT_DRIVE_OPTIONS,
@@ -14,6 +15,7 @@ import {
   step,
   visualHeadingOf,
 } from './drive';
+import { transitPosition } from './transit';
 import { type InputBuffer, consumeFlip, consumeSteer } from './useDriveInput';
 import { worldGraph, worldLamps, worldPlots, worldScenery } from './world';
 import { WORLD_COLORS } from './palette';
@@ -41,7 +43,11 @@ export interface HudState {
   /** The building the car is at, if any. */
   readonly nearbyEntryId: string | null;
   /** District of the road under the car. Drives the road-name flash. */
-  readonly roadDistrict: string | null;
+  readonly roadDistrict: District | null;
+  /** The stop the car is standing at, for the map and the strip. */
+  readonly atEntryId: string | null;
+  /** The stop it reaches next if nothing changes. Null at a dead end. */
+  readonly nextEntryId: string | null;
 }
 
 /**
@@ -137,13 +143,19 @@ export function Scene({
         worldPlots,
       );
 
+      // Where the car is on the transit diagram. Cheap — seventeen plots and a
+      // short walk forward — and it has to be computed *before* the signature,
+      // because the next stop changes as you pass each building along an edge
+      // and nothing else in the signature moves when it does.
+      const { atEntryId, nextEntryId } = transitPosition(worldGraph, worldPlots, state);
+
       // Bucketed so the overlay re-renders on meaningful change, not at 60 Hz.
       const approaching = remaining < PROMPT_DISTANCE;
       const signature = `${state.targetNodeId}|${state.choice}|${branches
         .map((b) => b.edgeId)
         .join(',')}|${approaching}|${nearby?.entryId ?? ''}|${Math.round(state.speed / 10)}|${
         edge?.district ?? ''
-      }`;
+      }|${atEntryId ?? ''}|${nextEntryId ?? ''}`;
       if (signature === lastHud.current) return;
       lastHud.current = signature;
 
@@ -155,6 +167,8 @@ export function Scene({
         distanceToJunction: approaching ? remaining : Number.POSITIVE_INFINITY,
         nearbyEntryId: nearby?.entryId ?? null,
         roadDistrict: edge?.district ?? null,
+        atEntryId,
+        nextEntryId,
       });
     },
     [onHud],
